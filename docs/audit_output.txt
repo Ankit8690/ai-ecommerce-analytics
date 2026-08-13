@@ -1,0 +1,417 @@
+
+==============================================================================
+ CUSTOMERS  rows=99,441  cols=5  exact_dup_rows=0
+==============================================================================
+                           dtype  nulls  null_%  nunique                            sample
+customer_id               object      0     0.0    99441  06b8999e2fba1a1fbc88172c00ba8bc7
+customer_unique_id        object      0     0.0    96096  861eff4711a542e4b93843c6dd7febb0
+customer_zip_code_prefix   int64      0     0.0    14994                             14409
+customer_city             object      0     0.0     4119                          Adilabad
+customer_state            object      0     0.0       20                    Andhra Pradesh
+
+==============================================================================
+ GEO_LOCATION  rows=19,015  cols=5  exact_dup_rows=0
+==============================================================================
+                               dtype  nulls  null_%  nunique          sample
+geolocation_zip_code_prefix    int64      0     0.0    19015            1037
+geolocation_lat              float64      0     0.0    18987      -23.545621
+geolocation_lng              float64      0     0.0    18988      -46.639292
+geolocation_city              object      0     0.0     3809    Akkarampalle
+geolocation_state             object      0     0.0       20  Andhra Pradesh
+
+==============================================================================
+ ORDERS  rows=99,441  cols=8  exact_dup_rows=0
+==============================================================================
+                                dtype  nulls  null_%  nunique                            sample
+order_id                       object      0    0.00    99441  e481f51cbdc54678b7cc49136f2d6af7
+customer_id                    object      0    0.00    99441  9ef432eb6251297304e76186b10a928d
+order_status                   object      0    0.00        8                         delivered
+order_purchase_timestamp       object      0    0.00    88789                   10/2/2017 10:56
+order_approved_at              object    160    0.16    50462                   10/2/2017 11:07
+order_delivered_carrier_date   object   1783    1.79    61544                   10/4/2017 19:55
+order_delivered_customer_date  object   2965    2.98    75649                  10/10/2017 21:25
+order_estimated_delivery_date  object      0    0.00      459                   10/18/2017 0:00
+
+==============================================================================
+ ORDER_ITEMS  rows=112,650  cols=7  exact_dup_rows=0
+==============================================================================
+                       dtype  nulls  null_%  nunique                            sample
+order_id              object      0     0.0    98666  00010242fe8c5a6d1ba2dd792cb16214
+order_item_id          int64      0     0.0       21                                 1
+product_id            object      0     0.0    32951  4244733e06e7ecb4970a6e2683c13e61
+seller_id             object      0     0.0     3095  48436dade18ac8b2bce089ec2a041202
+shipping_limit_date   object      0     0.0    54615                    9/19/2017 9:45
+price                float64      0     0.0     5968                              58.9
+freight_value        float64      0     0.0     6999                             13.29
+
+==============================================================================
+ ORDER_PAYMENTS  rows=103,886  cols=5  exact_dup_rows=0
+==============================================================================
+                        dtype  nulls  null_%  nunique                            sample
+order_id               object      0     0.0    99440  b81ef226f3fe1789b1e8b2acac839d17
+payment_sequential      int64      0     0.0       29                                 1
+payment_type           object      0     0.0        5                       credit_card
+payment_installments    int64      0     0.0       24                                 8
+payment_value         float64      0     0.0    29077                             99.33
+
+==============================================================================
+ ORDER_REVIEW_RATINGS  rows=100,000  cols=5  exact_dup_rows=0
+==============================================================================
+                          dtype  nulls  null_%  nunique                            sample
+review_id                object      0     0.0    99173  7bc2406110b926393aa56f80a40eba40
+order_id                 object      0     0.0    99441  73fc7af87114b39712e6da79b0a377eb
+review_score              int64      0     0.0        5                                 4
+review_creation_date     object      0     0.0      637                    1/18/2018 0:00
+review_answer_timestamp  object      0     0.0    89500                   1/18/2018 21:46
+
+==============================================================================
+ PRODUCTS  rows=32,951  cols=9  exact_dup_rows=0
+==============================================================================
+                              dtype  nulls  null_%  nunique                            sample
+product_id                   object      0    0.00    32951  1e9e8ef04dbcff4541ed26657ea517e5
+product_category_name        object    623    1.89       71                         Perfumery
+product_name_lenght         float64    610    1.85       66                              40.0
+product_description_lenght  float64    610    1.85     2960                             287.0
+product_photos_qty          float64    610    1.85       19                               1.0
+product_weight_g            float64      2    0.01     2204                             225.0
+product_length_cm           float64      2    0.01       99                              16.0
+product_height_cm           float64      2    0.01      102                              10.0
+product_width_cm            float64      2    0.01       95                              14.0
+
+==============================================================================
+ SELLERS  rows=3,095  cols=4  exact_dup_rows=0
+==============================================================================
+                         dtype  nulls  null_%  nunique                            sample
+seller_id               object      0    0.00     3095  3442f8959a84dea7ee197c632cb2df15
+seller_zip_code_prefix   int64      0    0.00     2225                             13023
+seller_city             object     57    1.84      534                             Alwal
+seller_state            object     57    1.84       19                    Andhra Pradesh
+
+==============================================================================
+ FOREIGN KEY INTEGRITY
+==============================================================================
+  ORDERS.customer_id -> CUSTOMERS.customer_id          orphans=     0  ( 0.00%)
+  ORDER_ITEMS.order_id -> ORDERS.order_id              orphans=     0  ( 0.00%)
+  ORDER_ITEMS.product_id -> PRODUCTS.product_id        orphans=     0  ( 0.00%)
+  ORDER_ITEMS.seller_id -> SELLERS.seller_id           orphans=     0  ( 0.00%)
+  ORDER_PAYMENTS.order_id -> ORDERS.order_id           orphans=     0  ( 0.00%)
+  REVIEWS.order_id -> ORDERS.order_id                  orphans=     0  ( 0.00%)
+  CUSTOMERS.zip -> GEO.zip                             orphans=   278  ( 0.28%)
+  SELLERS.zip -> GEO.zip                               orphans=     7  ( 0.23%)
+
+==============================================================================
+ CANDIDATE PRIMARY KEYS
+==============================================================================
+  CUSTOMERS              ['customer_id']                        duplicates=     0  UNIQUE
+  GEO_LOCATION           ['geolocation_zip_code_prefix']        duplicates=     0  UNIQUE
+  ORDERS                 ['order_id']                           duplicates=     0  UNIQUE
+  ORDER_ITEMS            ['order_id', 'order_item_id']          duplicates=     0  UNIQUE
+  ORDER_PAYMENTS         ['order_id', 'payment_sequential']     duplicates=     0  UNIQUE
+  REVIEWS (review_id)    ['review_id']                          duplicates=   827  NOT UNIQUE
+  REVIEWS (order_id)     ['order_id']                           duplicates=   559  NOT UNIQUE
+  REVIEWS (pair)         ['review_id', 'order_id']              duplicates=     0  UNIQUE
+  PRODUCTS               ['product_id']                         duplicates=     0  UNIQUE
+  SELLERS                ['seller_id']                          duplicates=     0  UNIQUE
+
+==============================================================================
+ ORDER COVERAGE
+==============================================================================
+  orders with >= 1 item     : 98,666 / 99,441
+  orders with >= 1 payment  : 99,440 / 99,441
+  orders with >= 1 review   : 99,441 / 99,441
+  products ever sold        : 32,951 / 32,951
+  sellers ever sold         :  3,095 / 3,095
+
+==============================================================================
+ DATE RANGES (M/D/YYYY H:MM)
+==============================================================================
+  ORDERS.order_purchase_timestamp         2016-09-04 21:15 -> 2018-10-17 17:30  unparsed=0
+  ORDERS.order_approved_at                2016-09-15 12:16 -> 2018-09-03 17:40  unparsed=0
+  ORDERS.order_delivered_carrier_date     2016-10-08 10:34 -> 2018-09-11 19:48  unparsed=0
+  ORDERS.order_delivered_customer_date    2016-10-11 13:46 -> 2018-10-17 13:22  unparsed=0
+  ORDERS.order_estimated_delivery_date    2016-09-30 00:00 -> 2018-11-12 00:00  unparsed=0
+  ORDER_ITEMS.shipping_limit_date              2016-09-19 00:15 -> 2020-04-09 22:35  unparsed=0
+  REVIEWS.review_creation_date             2016-10-02 00:00 -> 2018-08-31 00:00  unparsed=0
+  REVIEWS.review_answer_timestamp          2016-10-07 18:32 -> 2018-10-29 12:27  unparsed=0
+
+==============================================================================
+ ORDER STATUS
+==============================================================================
+order_status
+delivered      96478
+shipped         1107
+canceled         625
+unavailable      609
+invoiced         314
+processing       301
+created            5
+approved           2
+
+==============================================================================
+ PAYMENT TYPES + INSTALLMENTS
+==============================================================================
+payment_type
+credit_card    76795
+UPI            19784
+voucher         5775
+debit_card      1529
+not_defined        3
+
+installments distribution:
+payment_installments
+0         2
+1     52546
+2     12413
+3     10461
+4      7098
+5      5239
+6      3920
+7      1626
+8      4268
+9       644
+10     5328
+11       23
+12      133
+13       16
+14       15
+15       74
+16        5
+17        8
+18       27
+20       17
+21        3
+22        1
+23        1
+24       18
+
+==============================================================================
+ ORDER_ITEMS — numeric percentiles
+==============================================================================
+           price  freight_value  order_item_id
+count  112650.00      112650.00      112650.00
+mean      120.65          19.99           1.20
+std       183.63          15.81           0.71
+min         0.85           0.00           1.00
+1%          9.99           4.42           1.00
+5%         17.00           7.78           1.00
+25%        39.90          13.08           1.00
+50%        74.99          16.26           1.00
+75%       134.90          21.15           1.00
+95%       349.90          45.12           2.00
+99%       890.00          84.52           4.00
+max      6735.00         409.68          21.00
+
+==============================================================================
+ ORDER_PAYMENTS — numeric percentiles
+==============================================================================
+       payment_value  payment_installments
+count      103886.00             103886.00
+mean          154.10                  2.85
+std           217.49                  2.69
+min             0.00                  0.00
+1%              6.69                  1.00
+5%             26.11                  1.00
+25%            56.79                  1.00
+50%           100.00                  1.00
+75%           171.84                  4.00
+95%           437.64                 10.00
+99%          1039.92                 10.00
+max         13664.08                 24.00
+
+==============================================================================
+ PRODUCTS — numeric percentiles
+==============================================================================
+       product_name_lenght  product_description_lenght  product_photos_qty  product_weight_g  product_length_cm  product_height_cm  product_width_cm
+count             32341.00                    32341.00            32341.00          32949.00           32949.00           32949.00          32949.00
+mean                 48.48                      771.50                2.19           2276.47              30.82              16.94             23.20
+std                  10.25                      635.12                1.74           4282.04              16.91              13.64             12.08
+min                   5.00                        4.00                1.00              0.00               7.00               2.00              6.00
+1%                   20.00                       84.00                1.00             60.00              16.00               2.00             11.00
+5%                   29.00                      150.00                1.00            105.00              16.00               3.00             11.00
+25%                  42.00                      339.00                1.00            300.00              18.00               8.00             15.00
+50%                  51.00                      595.00                1.00            700.00              25.00              13.00             20.00
+75%                  57.00                      972.00                3.00           1900.00              38.00              21.00             30.00
+95%                  60.00                     2063.00                6.00          10850.00              65.00              44.00             47.00
+99%                  63.00                     3286.20                8.00          22538.00             100.00              69.00             63.00
+max                  76.00                     3992.00               20.00          40425.00             105.00             105.00            118.00
+
+==============================================================================
+ REVIEW SCORE DISTRIBUTION
+==============================================================================
+review_score
+1    11858
+2     3235
+3     8287
+4    19200
+5    57420
+  negative (<=2): 15,093 (15.09%)
+  positive (>=4): 76,620 (76.62%)
+
+==============================================================================
+ REVIEW TABLE ANOMALY
+==============================================================================
+  rows=100,000 unique review_id=99,173 unique order_id=99,441 orders=99,441
+  duplicate order_id rows: 1,114
+  duplicate review_id rows: 1,629
+
+==============================================================================
+ REPEAT PURCHASE (customer_unique_id)
+==============================================================================
+order_id
+1     93099
+2      2745
+3       203
+4        30
+5         8
+6         6
+7         3
+9         1
+17        1
+  unique customers = 96,096
+  repeat (>1 order) = 2,997 (3.12%)
+  max orders by one customer = 17
+
+==============================================================================
+ DELIVERY PERFORMANCE (delivered orders)
+==============================================================================
+       days_to_deliver  delay_vs_est
+count         96470.00      96470.00
+mean             12.56        -11.18
+std               9.55         10.18
+min               0.53       -146.02
+50%              10.22        -11.95
+90%              23.10         -1.14
+95%              29.27          3.82
+99%              46.05         18.94
+max             209.63        188.98
+  late deliveries: 8.11%
+  delivered but null delivered_customer_date: 8
+
+==============================================================================
+ PAYMENT vs ITEM TOTAL RECONCILIATION
+==============================================================================
+  orders compared: 98,665
+  exact match (|diff|<0.01): 98,089  (99.42%)
+  |diff| > 1: 249
+count    98665.00
+mean         0.03
+std          1.13
+min        -51.62
+25%          0.00
+50%          0.00
+75%          0.00
+max        182.81
+
+==============================================================================
+ GEOGRAPHY SANITY
+==============================================================================
+  lat range -36.6054 -> 42.1840
+  lng range -72.9273 -> 121.1054
+  customer states (20): ['Andhra Pradesh', 'Arunachal Pradesh', 'Chhattisgarh', 'Delhi', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jammu & Kashmir', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Orissa', 'Punjab', 'Rajasthan', 'Tamil Nadu', 'Uttar Pradesh', 'Uttaranchal', 'West Bengal']
+  zip matched rows: 99,163  city agreement: 95.04%  state agreement: 97.64%
+
+==============================================================================
+ PRODUCT CATEGORIES — top 15 of 71 values
+==============================================================================
+product_category_name
+Bed_Bath_Table              3029
+Sports_Leisure              2867
+Furniture_Decor             2657
+Health_Beauty               2444
+Housewares                  2335
+Auto                        1900
+Computers_Accessories       1639
+Toys                        1411
+Watches_Gifts               1329
+Telephony                   1134
+Baby                         919
+Perfumery                    868
+Stationery                   849
+Fashion_Bags_Accessories     849
+Cool_Stuff                   789
+
+==============================================================================
+ CUSTOMER STATES (by count) — top 10 of 20 values
+==============================================================================
+customer_state
+Andhra Pradesh     60688
+Gujarat             7467
+Chhattisgarh        6355
+Karnataka           3866
+Delhi               3332
+Madhya Pradesh      2853
+Haryana             2202
+Tamil Nadu          2122
+Maharashtra         2005
+Jammu & Kashmir     1537
+
+==============================================================================
+ SELLER STATES (by count) — top 10 of 19 values
+==============================================================================
+seller_state
+Andhra Pradesh     2060
+Gujarat             220
+Chhattisgarh        205
+Karnataka           107
+Delhi                89
+Haryana              65
+NaN                  57
+Jammu & Kashmir      50
+Madhya Pradesh       46
+Tamil Nadu           43
+
+==============================================================================
+ ORDERS PER MONTH (purchase)
+==============================================================================
+order_purchase_timestamp
+2016-09       4
+2016-10     324
+2016-12       1
+2017-01     800
+2017-02    1780
+2017-03    2682
+2017-04    2404
+2017-05    3700
+2017-06    3245
+2017-07    4026
+2017-08    4331
+2017-09    4285
+2017-10    4631
+2017-11    7544
+2017-12    5673
+2018-01    7269
+2018-02    6728
+2018-03    7211
+2018-04    6939
+2018-05    6873
+2018-06    6167
+2018-07    6292
+2018-08    6512
+2018-09      16
+2018-10       4
+Freq: M
+
+==============================================================================
+ FREIGHT-TO-PRICE RATIO
+==============================================================================
+count    112650.000
+mean          0.321
+std           0.350
+min           0.000
+50%           0.231
+90%           0.643
+95%           0.875
+99%           1.549
+max          26.235
+
+==============================================================================
+ PRODUCTS NEVER SOLD / SELLERS INACTIVE / ORDERS WITHOUT ITEMS
+==============================================================================
+  products never appearing in ORDER_ITEMS: 0
+  sellers never appearing in ORDER_ITEMS : 0
+  orders never appearing in ORDER_ITEMS  : 775
+  orders never appearing in ORDER_PAYMENTS: 1
+
+==============================================================================
+ DONE
+==============================================================================

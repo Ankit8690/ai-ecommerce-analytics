@@ -1,0 +1,43 @@
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+*.pyo
+*.pyd
+
+# --- Data & artefacts ---
+# Raw dataset stays local — do not push CSVs or the zip to git.
+Dataset/raw/
+Dataset/*.zip
+Dataset/processed/
+models/
+*.pkl
+*.joblib
+*.parquet
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Docker volumes / DB dumps ---
+pg_data/
+*.dump
+*.sql.gz
