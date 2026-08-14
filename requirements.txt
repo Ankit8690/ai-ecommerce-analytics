@@ -1,4 +1,4 @@
-# Phase 2 & 3 dependencies. Later phases append; do not remove entries silently.
+# Phase 2, 3, 4 dependencies. Later phases append; do not remove entries silently.
 
 # Database
 sqlalchemy==2.0.36
@@ -13,6 +13,12 @@ python-dotenv==1.0.1
 
 # Testing
 pytest==8.3.4
+httpx
 
 # ML
 scikit-learn
+
+# Web / API (Phase 4)
+fastapi
+uvicorn
+pydantic

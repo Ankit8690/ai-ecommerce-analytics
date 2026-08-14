@@ -1,8 +1,8 @@
 # Project Status
 
 **Last updated:** 2026-08-14
-**Current phase:** Phase 3 — ML & Advanced Analytics (✅ Complete)
-**Next phase:** Phase 4 — ML: segmentation, experience risk, forecasting integration / FastAPI backend
+**Current phase:** Phase 4 — FastAPI backend (✅ Complete)
+**Next phase:** Phase 5 — Streamlit dashboard
 
 ---
 
@@ -14,15 +14,14 @@
 | 1 | Dataset audit, database foundation & initial warehouse load | ✅ Complete |
 | 2 | SQL analytics layer | ✅ Complete |
 | 3 | ML & Advanced Analytics | ✅ Complete |
-| 4 | ML: segmentation, experience risk, forecasting | ✅ Complete |
-| 5 | FastAPI backend | ⬜ Not started |
-| 6 | Streamlit dashboard | ⬜ Not started |
-| 7 | LLM analyst + safe NL→SQL | ⬜ Not started |
-| 8 | RAG knowledge assistant | ⬜ Not started |
-| 9 | AI business recommendations | ⬜ Not started |
-| 10 | Test suite hardening | ⬜ Not started |
-| 11 | Docker | ⬜ Not started |
-| 12 | Deployment & final documentation | ⬜ Not started |
+| 4 | FastAPI backend | ✅ Complete |
+| 5 | Streamlit dashboard | ⬜ Not started |
+| 6 | LLM analyst + safe NL→SQL | ⬜ Not started |
+| 7 | RAG knowledge assistant | ⬜ Not started |
+| 8 | AI business recommendations | ⬜ Not started |
+| 9 | Test suite hardening | ⬜ Not started |
+| 10 | Docker | ⬜ Not started |
+| 11 | Deployment & final documentation | ⬜ Not started |
 
 Legend: ⬜ not started · 🟡 in progress · ✅ complete · ⛔ blocked
 
