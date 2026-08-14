@@ -1,4 +1,4 @@
-# Phase 2, 3, 4 dependencies. Later phases append; do not remove entries silently.
+# Phase 2, 3, 4, 5 dependencies. Later phases append; do not remove entries silently.
 
 # Database
 sqlalchemy==2.0.36
@@ -22,3 +22,7 @@ scikit-learn
 fastapi
 uvicorn
 pydantic
+
+# Dashboard (Phase 5)
+streamlit
+plotly

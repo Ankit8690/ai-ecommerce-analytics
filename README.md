@@ -5,8 +5,26 @@ a PostgreSQL warehouse, a SQL analytics layer, machine-learning models, a FastAP
 backend, a Streamlit dashboard, and an LLM business analyst that answers questions
 in natural language through a safety-constrained SQL path.
 
-> **Status:** Phase 0 of 12 complete (discovery & data profiling).
-> The application is not yet runnable. See [PROJECT_STATUS.md](PROJECT_STATUS.md).
+> **Status:** Phase 5 complete (Executive BI Dashboard & API active).
+> See [PROJECT_STATUS.md](PROJECT_STATUS.md).
+
+---
+
+## How to run the application
+
+### 1. Start the FastAPI backend API
+```powershell
+.venv\Scripts\python.exe -m uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
+```
+* **API Documentation (Swagger)**: `http://127.0.0.1:8000/docs`
+* **Health Check**: `http://127.0.0.1:8000/health`
+
+### 2. Start the Streamlit BI Dashboard
+In a second terminal:
+```powershell
+.venv\Scripts\python.exe -m streamlit run dashboard.py
+```
+* **Dashboard URL**: `http://localhost:8501`
 
 ---
 
