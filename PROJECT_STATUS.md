@@ -1,8 +1,8 @@
 # Project Status
 
 **Last updated:** 2026-08-14
-**Current phase:** Phase 1 — Dataset audit (complete)
-**Next phase:** Phase 2 — Repository & database foundation (schema + load)
+**Current phase:** Phase 2 — SQL analytics layer (✅ Complete)
+**Next phase:** Phase 3 — Python analytics & feature engineering
 
 ---
 
@@ -11,27 +11,26 @@
 | # | Phase | Status |
 |---|---|---|
 | 0 | Discovery & initial profiling | ✅ Complete |
-| 1 | Dataset audit + documentation | ✅ Complete |
-| 2 | Repo scaffold, env, PostgreSQL schema, data load | ⬜ Not started |
-| 3 | SQL analytics layer | ⬜ Not started |
-| 4 | Python analytics & feature engineering | ⬜ Not started |
-| 5 | ML: segmentation, experience risk, forecasting | ⬜ Not started |
-| 6 | FastAPI backend | ⬜ Not started |
-| 7 | Streamlit dashboard | ⬜ Not started |
-| 8 | LLM analyst + safe NL→SQL | ⬜ Not started |
-| 9 | RAG knowledge assistant | ⬜ Not started |
-| 10 | AI business recommendations | ⬜ Not started |
-| 11 | Test suite hardening | ⬜ Not started |
-| 12 | Docker | ⬜ Not started |
-| 13 | Deployment & final documentation | ⬜ Not started |
+| 1 | Dataset audit, database foundation & initial warehouse load | ✅ Complete |
+| 2 | SQL analytics layer | ✅ Complete |
+| 3 | Python analytics & feature engineering | ⬜ Not started |
+| 4 | ML: segmentation, experience risk, forecasting | ⬜ Not started |
+| 5 | FastAPI backend | ⬜ Not started |
+| 6 | Streamlit dashboard | ⬜ Not started |
+| 7 | LLM analyst + safe NL→SQL | ⬜ Not started |
+| 8 | RAG knowledge assistant | ⬜ Not started |
+| 9 | AI business recommendations | ⬜ Not started |
+| 10 | Test suite hardening | ⬜ Not started |
+| 11 | Docker | ⬜ Not started |
+| 12 | Deployment & final documentation | ⬜ Not started |
 
 Legend: ⬜ not started · 🟡 in progress · ✅ complete · ⛔ blocked
 
 ---
 
-## Phase 1 — Dataset audit ✅
+## Phase 1 — Dataset audit, database foundation & initial warehouse load 🟡
 
-**Deliverables produced**
+**Completed deliverables — dataset audit**
 
 - `scripts/audit_dataset.py` — a reusable audit (row counts, dtypes, nulls,
   duplicates, PK/FK integrity, categorical distributions, numeric percentiles,
@@ -95,16 +94,14 @@ Legend: ⬜ not started · 🟡 in progress · ✅ complete · ⛔ blocked
 
 ---
 
-## Phase 2 — Repo scaffold, env, PostgreSQL schema, data load ⬜
+## Remaining Phase 1 work — safe database initialization & data load ⬜
 
 **Planned work (details finalised at phase start)**
 
-1. `git init`, `.gitignore`, `.env.example`, project folder structure.
-2. Create `.venv`, pin dependencies in `requirements.txt`.
-3. Create database `ecommerce_bi`, application user, **read-only** user.
-4. Write DDL: 8 tables, PKs, FKs, indexes (per database_relationships.md).
-5. Load CSVs with timestamp casting, product-name typo fix, review dedup, `unknown` category fill.
-6. Run integrity tests.
+1. Complete the dedicated-role bootstrap against the manually created `ecommerce_ai` database; it must never create/drop a database.
+2. Run create-only DDL: 8 tables, PKs, FKs and indexes (per database_relationships.md).
+3. Load CSVs with timestamp casting, product-name typo fix, review dedup and `unknown` category fill.
+4. Run read-only integrity and privilege validation.
 
 **Verification checklist**
 
@@ -114,7 +111,7 @@ Legend: ⬜ not started · 🟡 in progress · ✅ complete · ⛔ blocked
 - [ ] Row counts in PostgreSQL match the audit exactly (reviews = 99,441 after dedup)
 - [ ] All FK constraints validate with zero violations
 - [ ] Timestamp columns are true `TIMESTAMP`
-- [ ] Read-only user can `SELECT` but is denied `INSERT`/`UPDATE`/`DELETE`
+- [ ] Read-only user can `SELECT`; privilege metadata confirms it lacks `INSERT`/`UPDATE`/`DELETE`/`TRUNCATE`
 - [ ] Data-integrity `pytest` suite green
 
 **Expected row counts**
@@ -146,12 +143,12 @@ noted.
 
 | ID | Issue | Address in |
 |---|---|---|
-| DQ-1 | Reviews padded to 100,000 rows | Phase 2 (dedup keep-latest) |
-| DQ-3 | 775 order-item-less orders | Phase 3 (join semantics) |
-| DQ-4 | `shipping_limit_date` extends to 2020 | Phase 4 (exclude from features) |
-| DQ-5 | Truncated sales tail | Phase 5 (trim forecast window) |
-| DQ-6 | Zip codes without GEO_LOCATION rows | Phase 2 (LEFT JOIN only) |
-| DQ-7 | 623 products missing category | Phase 2 (`unknown`) |
+| DQ-1 | Reviews padded to 100,000 rows | Phase 1 (dedup keep-latest) |
+| DQ-3 | 775 order-item-less orders | Phase 2 (join semantics) |
+| DQ-4 | `shipping_limit_date` extends to 2020 | Phase 3 (exclude from features) |
+| DQ-5 | Truncated sales tail | Phase 4 (trim forecast window) |
+| DQ-6 | Zip codes without GEO_LOCATION rows | Phase 1 (LEFT JOIN only) |
+| DQ-7 | 623 products missing category | Phase 1 (`unknown`) |
 | DQ-10 | No churn signal | Locked in scope (D-007) |
-| DQ-13 | Timestamps as text | Phase 2 (cast at load) |
-| DQ-15 | Payment/item-total mismatches | Phase 3 (choose GMV vs paid per query) |
+| DQ-13 | Timestamps as text | Phase 1 (cast at load) |
+| DQ-15 | Payment/item-total mismatches | Phase 2 (choose GMV vs paid per query) |
