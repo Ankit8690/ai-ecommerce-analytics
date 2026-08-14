@@ -1,8 +1,8 @@
 # Project Status
 
 **Last updated:** 2026-08-14
-**Current phase:** Phase 2 — SQL analytics layer (✅ Complete)
-**Next phase:** Phase 3 — Python analytics & feature engineering
+**Current phase:** Phase 3 — ML & Advanced Analytics (✅ Complete)
+**Next phase:** Phase 4 — ML: segmentation, experience risk, forecasting integration / FastAPI backend
 
 ---
 
@@ -13,8 +13,8 @@
 | 0 | Discovery & initial profiling | ✅ Complete |
 | 1 | Dataset audit, database foundation & initial warehouse load | ✅ Complete |
 | 2 | SQL analytics layer | ✅ Complete |
-| 3 | Python analytics & feature engineering | ⬜ Not started |
-| 4 | ML: segmentation, experience risk, forecasting | ⬜ Not started |
+| 3 | ML & Advanced Analytics | ✅ Complete |
+| 4 | ML: segmentation, experience risk, forecasting | ✅ Complete |
 | 5 | FastAPI backend | ⬜ Not started |
 | 6 | Streamlit dashboard | ⬜ Not started |
 | 7 | LLM analyst + safe NL→SQL | ⬜ Not started |

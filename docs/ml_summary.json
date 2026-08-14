@@ -1,0 +1,179 @@
+{
+  "phase": "Phase 3 \u2014 ML & Advanced Analytics",
+  "segmentation": {
+    "n_clusters": 4,
+    "silhouette_score": 0.3643,
+    "cluster_counts": {
+      "High-Value Champions": 2997,
+      "Repeat Loyalists": 32962,
+      "Recent One-Time Buyers": 23492,
+      "Lapsed / Low-Spend Buyers": 36645
+    },
+    "cluster_stats": {
+      "High-Value Champions": {
+        "recency_days": 268.67,
+        "order_count": 2.12,
+        "total_gmv": 307.66,
+        "avg_order_value": 145.35
+      },
+      "Repeat Loyalists": {
+        "recency_days": 331.05,
+        "order_count": 1.0,
+        "total_gmv": 303.6,
+        "avg_order_value": 303.6
+      },
+      "Recent One-Time Buyers": {
+        "recency_days": 117.04,
+        "order_count": 1.0,
+        "total_gmv": 111.74,
+        "avg_order_value": 111.74
+      },
+      "Lapsed / Low-Spend Buyers": {
+        "recency_days": 360.99,
+        "order_count": 1.0,
+        "total_gmv": 62.47,
+        "avg_order_value": 62.47
+      }
+    }
+  },
+  "sales_forecasting": {
+    "selected_model": "Moving Average Baseline",
+    "baseline_metrics": {
+      "MAE": 394681.8,
+      "RMSE": 557685.99,
+      "MAPE_pct": 154408.47
+    },
+    "model_metrics": {
+      "MAE": 849590.66,
+      "RMSE": 1041942.71,
+      "MAPE_pct": 225283.3
+    },
+    "historical_months_count": 25,
+    "test_holdout_months": 5,
+    "forecast_horizon_months": 3,
+    "forward_forecast": [
+      {
+        "month": "2018-11-01",
+        "forecast_gmv": 334491.64,
+        "lower_ci_95": 0,
+        "upper_ci_95": 1113064.59
+      },
+      {
+        "month": "2018-12-01",
+        "forecast_gmv": 111552.7,
+        "lower_ci_95": 0,
+        "upper_ci_95": 890125.64
+      },
+      {
+        "month": "2019-01-01",
+        "forecast_gmv": 148681.45,
+        "lower_ci_95": 0,
+        "upper_ci_95": 927254.39
+      }
+    ]
+  },
+  "customer_experience_correlations": {
+    "delivery_status_impact": [
+      {
+        "delivery_status": "On-Time",
+        "total_orders": 88644,
+        "avg_review_score": 4.283358151707955,
+        "negative_reviews": 8416,
+        "negative_review_rate_pct": 9.49
+      },
+      {
+        "delivery_status": "Late",
+        "total_orders": 7826,
+        "avg_review_score": 2.544978277536417,
+        "negative_reviews": 4276,
+        "negative_review_rate_pct": 54.64
+      }
+    ],
+    "top_high_risk_categories": [
+      {
+        "product_category_name": "Office_Furniture",
+        "order_count": 1273,
+        "avg_review_score": 3.48,
+        "negative_review_count": 445,
+        "negative_review_rate_pct": 26.32
+      },
+      {
+        "product_category_name": "unknown",
+        "order_count": 1473,
+        "avg_review_score": 3.81,
+        "negative_review_count": 372,
+        "negative_review_rate_pct": 22.86
+      },
+      {
+        "product_category_name": "Furniture_Decor",
+        "order_count": 6449,
+        "avg_review_score": 3.89,
+        "negative_review_count": 1652,
+        "negative_review_rate_pct": 19.82
+      },
+      {
+        "product_category_name": "Bed_Bath_Table",
+        "order_count": 9417,
+        "avg_review_score": 3.87,
+        "negative_review_count": 2167,
+        "negative_review_rate_pct": 19.5
+      },
+      {
+        "product_category_name": "Computers_Accessories",
+        "order_count": 6689,
+        "avg_review_score": 3.92,
+        "negative_review_count": 1473,
+        "negative_review_rate_pct": 18.82
+      }
+    ]
+  },
+  "experience_risk_model": {
+    "selected_model": "Random Forest",
+    "logistic_regression_metrics": {
+      "accuracy": 0.8863,
+      "precision": 0.6803,
+      "recall": 0.2565,
+      "f1_score": 0.3725,
+      "roc_auc": 0.7374,
+      "confusion_matrix": [
+        [
+          16450,
+          306
+        ],
+        [
+          1887,
+          651
+        ]
+      ]
+    },
+    "random_forest_metrics": {
+      "accuracy": 0.8943,
+      "precision": 0.7572,
+      "recall": 0.2888,
+      "f1_score": 0.4181,
+      "roc_auc": 0.7447,
+      "confusion_matrix": [
+        [
+          16521,
+          235
+        ],
+        [
+          1805,
+          733
+        ]
+      ]
+    },
+    "feature_importances": {
+      "delay_vs_estimate_days": 0.4127,
+      "delivery_days": 0.2599,
+      "is_late": 0.1663,
+      "item_count": 0.0765,
+      "freight_total": 0.0409,
+      "product_gmv": 0.0217,
+      "item_price_total": 0.0194,
+      "payment_count": 0.0025
+    },
+    "target_negative_rate_pct": 13.16,
+    "sample_size": 96470
+  }
+}
