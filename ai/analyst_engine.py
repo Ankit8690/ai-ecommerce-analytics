@@ -15,7 +15,7 @@ from sqlalchemy.engine import Engine
 
 from ai.sql_validator import validate_sql
 
-ROOT = Path(__file__).resolve().parent.parent.parent
+ROOT = Path(__file__).resolve().parent.parent
 
 SYSTEM_PROMPT = """You are an expert AI E-Commerce Business Analyst for a major online marketplace.
 Your goal is to answer business questions using ONLY the provided ground-truth analytics data.
@@ -96,43 +96,42 @@ def execute_safe_query(engine: Engine, sql_query: str) -> Tuple[bool, List[Dict[
         return False, [], f"Query execution failed: {str(e)}"
 
 
+# Default model — overridable via LLM_MODEL env var in .env
+_DEFAULT_MODEL = "gemini-2.5-flash"
+
+
 def call_llm_for_synthesis(question: str, data: Any, source_name: str) -> str:
     """
     Synthesize grounded business explanation using Google Gemini API or deterministic fallback.
+    API key: LLM_API_KEY (primary) or GEMINI_API_KEY (compatibility alias).
+    Model:   LLM_MODEL env var (defaults to gemini-2.5-flash).
     """
     api_key = os.environ.get("LLM_API_KEY") or os.environ.get("GEMINI_API_KEY")
-    
+    model_name = os.environ.get("LLM_MODEL") or _DEFAULT_MODEL
+
     prompt = f"""User Question: "{question}"
 Source: {source_name}
 Ground-Truth Analytics Data:
 {json.dumps(data, indent=2)}
 
-Please provide an analytical executive answer with Key Numbers, Insights, and Actionable Recommendations based strictly on the data above."""
+Provide an executive business answer with Key Numbers, Insights, and Actionable Recommendations \
+based strictly on the data above. Use GitHub Markdown formatting."""
 
     if api_key:
         try:
-            # Try new google-genai SDK first
             from google import genai
             client = genai.Client(api_key=api_key)
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=model_name,
                 contents=[SYSTEM_PROMPT, prompt]
             )
             if response.text:
                 return response.text
-        except Exception:
-            try:
-                # Try google.generativeai SDK fallback
-                import google.generativeai as ggi
-                ggi.configure(api_key=api_key)
-                model = ggi.GenerativeModel("gemini-1.5-flash", system_instruction=SYSTEM_PROMPT)
-                res = model.generate_content(prompt)
-                if res.text:
-                    return res.text
-            except Exception:
-                pass
+        except Exception as llm_err:
+            # Silently fall through to deterministic fallback; do not log the key
+            _ = llm_err
 
-    # Deterministic Grounded Fallback (when API key is absent or network fails)
+    # Deterministic Grounded Fallback (when API key is absent or Gemini call fails)
     return format_grounded_fallback(question, data, source_name)
 
 
