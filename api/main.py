@@ -7,12 +7,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.database import check_db_health
-from api.routes import analytics, ml
+from api.routes import analytics, analyst, ml
 from api.schemas import HealthResponse
 
 app = FastAPI(
     title="E-Commerce AI Analytics API",
-    description="Production-grade API exposing PostgreSQL analytics views and ML business intelligence.",
+    description="Production-grade API exposing PostgreSQL analytics views, ML models, and AI Business Analyst.",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -30,6 +30,7 @@ app.add_middleware(
 # Include API Routers
 app.include_router(analytics.router)
 app.include_router(ml.router)
+app.include_router(analyst.router)
 
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"], summary="Health Check")

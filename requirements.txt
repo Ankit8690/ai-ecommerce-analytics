@@ -1,4 +1,4 @@
-# Phase 2, 3, 4, 5 dependencies. Later phases append; do not remove entries silently.
+# Phase 2, 3, 4, 5, 6 dependencies. Later phases append; do not remove entries silently.
 
 # Database
 sqlalchemy==2.0.36
@@ -26,3 +26,6 @@ pydantic
 # Dashboard (Phase 5)
 streamlit
 plotly
+
+# AI / LLM (Phase 6)
+google-genai

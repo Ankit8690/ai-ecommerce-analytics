@@ -132,3 +132,16 @@ class ExperienceRiskResponse(BaseModel):
     risk_probability: float
     risk_level: str
     model_used: str = "Random Forest Classifier"
+
+
+class AnalystRequest(BaseModel):
+    question: str = Field(..., min_length=2, description="Natural language business question")
+
+
+class AnalystResponse(BaseModel):
+    question: str
+    answer: str
+    data: List[Dict[str, Any]] = []
+    source: str
+    sql_used: Optional[str] = None
+    insights: List[str] = []

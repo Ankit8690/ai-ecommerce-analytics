@@ -78,6 +78,7 @@ def main():
     menu = st.sidebar.radio(
         "Navigation",
         [
+            "🤖 AI Business Analyst",
             "Executive Overview",
             "Sales & Revenue",
             "Products & Categories",
@@ -93,9 +94,65 @@ def main():
     st.sidebar.caption("Data provenance: Public relabelled e-commerce dataset (unspecified currency units).")
 
     # -----------------------------------------------------------------
+    # 0. AI BUSINESS ANALYST
+    # -----------------------------------------------------------------
+    if menu == "🤖 AI Business Analyst":
+        st.markdown('<div class="main-title">🤖 AI Business Analyst</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sub-title">Ask natural-language business questions grounded in real database analytics</div>', unsafe_allow_html=True)
+        
+        st.markdown("##### Suggested Sample Questions:")
+        samples = [
+            "What are our overall executive KPIs and revenue numbers?",
+            "What are our best performing product categories by GMV?",
+            "How are sales and order volumes trending month over month?",
+            "Are late deliveries associated with negative reviews?",
+            "Which customer segments are most valuable?",
+            "What is the 3-month sales forecast?"
+        ]
+        
+        cols = st.columns(3)
+        selected_sample = None
+        for idx, sample_text in enumerate(samples):
+            with cols[idx % 3]:
+                if st.button(sample_text, key=f"btn_{idx}"):
+                    selected_sample = sample_text
+                    
+        user_question = st.text_input(
+            "Enter your question for the AI Analyst:",
+            value=selected_sample if selected_sample else "",
+            placeholder="e.g. Which categories generate the highest GMV and review ratings?"
+        )
+        
+        if st.button("Ask Analyst", type="primary") and user_question.strip():
+            with st.spinner("Analyzing ground-truth warehouse data..."):
+                try:
+                    resp = requests.post(
+                        f"{API_BASE_URL}/api/analyst",
+                        json={"question": user_question.strip()},
+                        timeout=10
+                    )
+                    if resp.status_code == 200:
+                        res = resp.json()
+                        st.markdown("---")
+                        st.markdown(res["answer"])
+                        
+                        st.caption(f"📌 **Analytics Source Used**: `{res['source']}`")
+                        if res.get("sql_used"):
+                            with st.expander("View Grounded SQL Query"):
+                                st.code(res["sql_used"], language="sql")
+                                
+                        if res.get("data"):
+                            with st.expander("View Supporting Ground-Truth Data"):
+                                st.dataframe(pd.DataFrame(res["data"]), use_container_width=True)
+                    else:
+                        st.error(f"Error ({resp.status_code}): {resp.text}")
+                except Exception as ex:
+                    st.error(f"Unable to connect to AI Analyst service at `{API_BASE_URL}/api/analyst`: {ex}")
+
+    # -----------------------------------------------------------------
     # 1. EXECUTIVE OVERVIEW
     # -----------------------------------------------------------------
-    if menu == "Executive Overview":
+    elif menu == "Executive Overview":
         st.markdown('<div class="main-title">Executive Overview</div>', unsafe_allow_html=True)
         st.markdown('<div class="sub-title">High-level key performance indicators and revenue summary</div>', unsafe_allow_html=True)
         
