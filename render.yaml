@@ -71,10 +71,12 @@ services:
       - key: PORT
         value: "8501"
       - key: DASHBOARD_API_URL
-        fromService:
-          name: ecommerce-api
-          type: web
-          property: hostport   # https://<api-service>.onrender.com
+        # Render's fromService/hostport returns "host:port" without protocol,
+        # which the dashboard client won't accept. Set this manually to the
+        # api service's PUBLIC URL after first deploy, e.g.:
+        #   https://ecommerce-api-abcd.onrender.com
+        # The dashboard's URL-normaliser will also fix a missing scheme.
+        sync: false
       - key: DATABASE_URL_READONLY
         fromDatabase:
           name: ecommerce-postgres

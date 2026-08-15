@@ -49,7 +49,27 @@ except Exception as _ds_err:  # pragma: no cover
     _DS_ERR = str(_ds_err)
 
 
-API_BASE_URL = os.environ.get("DASHBOARD_API_URL", "http://127.0.0.1:8000").rstrip("/")
+def _normalize_api_url(raw: str) -> str:
+    """Accept either 'host', 'host:port', or a full URL, and produce a
+    scheme-qualified base URL. Public deployments (Render/Railway/Fly) expose
+    services on HTTPS 443, not the container's internal port, so we strip a
+    stray ':8000' when the host looks like a managed platform hostname."""
+    v = (raw or "").strip().rstrip("/")
+    if not v:
+        return "http://127.0.0.1:8000"
+    if "://" not in v:
+        # Managed hosts always speak HTTPS; localhost stays HTTP.
+        is_local = v.startswith(("localhost", "127.", "api:"))
+        v = f"{'http' if is_local else 'https'}://{v}"
+    # Strip an internal container port that leaked into the value (common
+    # Render footgun — services listen on $PORT internally but are reached
+    # externally on 443).
+    if v.startswith("https://") and v.endswith(":8000"):
+        v = v[: -len(":8000")]
+    return v
+
+
+API_BASE_URL = _normalize_api_url(os.environ.get("DASHBOARD_API_URL", ""))
 ROOT = Path(__file__).resolve().parent
 _QUESTION_LIBRARY_PATH = ROOT / "ai" / "question_library.json"
 
