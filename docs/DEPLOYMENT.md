@@ -59,22 +59,53 @@ For **`ecommerce-dashboard`** → *Environment*:
 
 Save. Render redeploys automatically.
 
-## Step 3 — Seed the database (one-shot)
+## Step 3 — Seed the database (one-shot, from your laptop)
 
 The blueprint provisions an empty database. Load schema + 8 CSVs + views
-using Render's shell:
+by pointing your local `seed.py` at Render's **External Database URL**.
+This avoids the Starter-tier-only Render Shell and works on the free plan.
 
-1. In Render → **`ecommerce-api`** → **Shell** tab.
-2. Run:
+1. In Render → **`ecommerce-postgres`** → **Info** → copy the **External
+   Database URL**. It looks like
+   `postgresql://ecommerce_app:xxxx@dpg-abc-a.oregon-postgres.render.com/ecommerce_ai`.
+2. In your local Git Bash (from the repo root):
    ```bash
-   python database/seed.py            # loads schema + all CSVs
-   psql "$DATABASE_URL" -f database/analytics_schema.sql
-   ```
-   Expected output ends with `[verify] ALL CHECKS PASSED ✓` and 9 CREATE
-   VIEW lines.
+   # Rewrite the URL with the +psycopg driver hint SQLAlchemy expects,
+   # and set it for this shell only (do NOT put it in .env):
+   export DATABASE_URL="postgresql+psycopg://ecommerce_app:xxxx@dpg-abc-a.oregon-postgres.render.com/ecommerce_ai"
+   export DATABASE_URL_READONLY="$DATABASE_URL"   # Render exposes one role
+   export DATASET_RAW_DIR="Dataset/raw"
 
-> **Why not automatic?** Rerunning the seed against a live DB would error
-> on the existing tables. Making it a manual step is safer.
+   # 3a. Load schema + all 8 CSVs (~2-3 min over your uplink)
+   .venv/Scripts/python.exe database/seed.py
+
+   # 3b. Create the 9 analytics views (~2 s)
+   .venv/Scripts/python.exe scripts/apply_analytics_schema.py
+   ```
+   Expected: `[verify] ALL CHECKS PASSED ✓` then
+   `Applied analytics_schema.sql to dpg-abc-a.oregon-postgres.render.com/ecommerce_ai`.
+
+3. Verify the numbers match the known truth values:
+   ```bash
+   .venv/Scripts/python.exe -c "
+   import os
+   from sqlalchemy import create_engine, text
+   e = create_engine(os.environ['DATABASE_URL'])
+   with e.connect() as c:
+       print('orders  :', c.execute(text('SELECT COUNT(*) FROM public.orders')).scalar())
+       print('views   :', c.execute(text(\"SELECT COUNT(*) FROM information_schema.views WHERE table_schema='analytics'\")).scalar())
+       print('gmv     :', c.execute(text('SELECT product_gmv FROM analytics.v_executive_kpis')).scalar())
+   "
+   ```
+   Expected: `orders 99441`, `views 9`, `gmv 15843553.24`.
+
+4. Close the terminal (or `unset DATABASE_URL`) so your local project keeps
+   using your local `.env` — you don't want to accidentally point your dev
+   work at the cloud DB.
+
+> **Why not automatic on first container start?** Rerunning the seed against
+> a live DB would error on the existing tables. Making seeding an explicit
+> one-shot from your laptop is safer than a fragile idempotency dance.
 
 ## Step 4 — Wire CORS
 
