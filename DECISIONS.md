@@ -52,11 +52,12 @@ it is a real database-level privilege rather than an application convention.
 
 ---
 
-### D-004 — CSVs load into PostgreSQL once; analytics query the database
+### D-004 — CSVs load into PostgreSQL once in Phase 1; analytics query the database
 **Date:** 2026-08-14 · **Status:** Accepted
 
-Raw CSVs are treated as an immutable input, loaded once in Phase 1. All
-downstream layers read from PostgreSQL, not from `Dataset/raw/`.
+Raw CSVs are treated as an immutable input, loaded once during Phase 1 (which
+also includes schema creation and load validation). All downstream layers read
+from PostgreSQL, not from `Dataset/raw/`.
 
 Rejected: reading CSVs directly in Streamlit/FastAPI. That would make the
 database decorative and defeat the point of the project.
@@ -133,11 +134,11 @@ because they treat the state as an opaque category.
 
 ---
 
-### D-009 — LLM provider deferred to Phase 5
+### D-009 — LLM provider deferred to Phase 7
 **Date:** 2026-08-14 · **Status:** Open
 
 The LLM layer will be written behind a thin provider-agnostic interface so the
-choice can be made at Phase 5 without rework. Model name, API key and base URL
+choice can be made at Phase 7 without rework. Model name, API key and base URL
 come from environment variables.
 
-**Consequence:** no provider SDK is added to `requirements.txt` until Phase 5.
+**Consequence:** no provider SDK is added to `requirements.txt` until Phase 7.

@@ -1,29 +1,82 @@
-# AI-Powered E-Commerce Business Intelligence & Decision Support Platform
+# AI-Enhanced E-Commerce Data Analytics & Business Intelligence Platform
 
-An end-to-end analytics platform over a public e-commerce marketplace dataset:
-a PostgreSQL warehouse, a SQL analytics layer, machine-learning models, a FastAPI
-backend, a Streamlit dashboard, and an LLM business analyst that answers questions
-in natural language through a safety-constrained SQL path.
+An end-to-end **data analytics + BI** platform over a public e-commerce marketplace
+dataset. The trusted analytics layer is PostgreSQL 18 with a curated `analytics.*`
+schema of business-defined views. On top of that:
 
-> **Status:** Phase 5 complete (Executive BI Dashboard & API active).
+- **Streamlit BI dashboards** (executive overview, sales, products & categories,
+  customers & segments, customer experience, delivery & operations, forecasting)
+- **FastAPI backend** exposing the analytics views as REST endpoints
+- **AI enhancement layer** — natural-language → SQL (Gemini), an RAG knowledge
+  assistant grounded in project documentation, and an evidence-first decision-support
+  engine — all constrained to the same safe read-only path
+- **Power BI / Tableau integration ready** — see [docs/BI_INTEGRATION.md](docs/BI_INTEGRATION.md)
+  for connection settings, view catalog, and recommended dashboard layouts
+- **Cloud deployment** — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the
+  Render.com blueprint (managed PostgreSQL + two Docker web services on HTTPS)
+
+The AI is an *enhancement* over the analytics foundation, not a replacement for it.
+
+> **Status:** Phase 12 complete — Dockerized 3-service stack, 230/230 pytest cases green.
 > See [PROJECT_STATUS.md](PROJECT_STATUS.md).
 
 ---
 
 ## How to run the application
 
-### 1. Start the FastAPI backend API
+### Option A — Docker Compose (recommended, Phase 12)
+
+Prerequisites: **Docker Desktop 4.86+** (WSL 2 backend on Windows), and a populated `.env` (copy from `.env.example`, fill in `APP_DB_PASSWORD`, `READONLY_DB_PASSWORD`, `POSTGRES_ADMIN_PASSWORD`, and — optionally — `LLM_API_KEY`).
+
+```bash
+# 1. Build the application image (installs deps + bakes the RAG index)
+docker compose build
+
+# 2. First-time only: start Postgres, then load schema + 8 CSVs + analytics views
+docker compose up -d postgres
+docker compose --profile init up db-init --exit-code-from db-init
+
+# 3. Start the stack
+docker compose up -d
+```
+
+* **Dashboard**: http://localhost:8501
+* **API (Swagger UI)**: http://localhost:8000/docs
+* **Health**: http://localhost:8000/health
+
+Everyday commands:
+
+```bash
+docker compose ps                  # service status + health
+docker compose logs -f api         # follow api logs
+docker compose logs -f dashboard   # follow dashboard logs
+docker compose stop                # stop, keep data
+docker compose down                # stop and remove containers, keep Postgres volume
+docker compose down -v             # ALSO deletes the Postgres data volume (re-init required)
+```
+
+Postgres data is persisted in the named volume `ecommerce_postgres_data`, so `docker compose down` and `docker compose up` preserve the loaded dataset. Only `docker compose down -v` wipes it — after which you re-run step 2.
+
+To rebuild the RAG index (after editing docs) rebuild the image:
+
+```bash
+docker compose build --no-cache api && docker compose up -d
+```
+
+Postgres is **not** exposed to the host by default — services reach it via the Docker network as `postgres:5432`. Uncomment the `ports:` block in `docker-compose.yml` if you need `psql` from the host.
+
+### Option B — Local (no Docker)
+
+Assumes host PostgreSQL 18 is running and `.env` points at it.
+
 ```powershell
+# Terminal 1 — FastAPI
 .venv\Scripts\python.exe -m uvicorn api.main:app --reload --host 127.0.0.1 --port 8000
+# Terminal 2 — Streamlit
+.venv\Scripts\python.exe -m streamlit run dashboard.py
 ```
 * **API Documentation (Swagger)**: `http://127.0.0.1:8000/docs`
 * **Health Check**: `http://127.0.0.1:8000/health`
-
-### 2. Start the Streamlit BI Dashboard
-In a second terminal:
-```powershell
-.venv\Scripts\python.exe -m streamlit run dashboard.py
-```
 * **Dashboard URL**: `http://localhost:8501`
 
 ---

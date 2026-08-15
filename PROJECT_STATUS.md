@@ -1,8 +1,13 @@
 # Project Status
 
-**Last updated:** 2026-08-14
-**Current phase:** Phase 4 — FastAPI backend (✅ Complete)
-**Next phase:** Phase 5 — Streamlit dashboard
+**Last updated:** 2026-08-15
+**Current phase (ORIGINAL roadmap):** Phase 12 — Docker / Deployment (✅ Full stack running in containers; 230/230 pytest cases still green)
+**Next phase (ORIGINAL roadmap):** Phase 13 — Cloud deployment & final documentation
+
+> Note on numbering: earlier in-session work labelled the pytest-hardening step "Phase 9" — that
+> was numbering drift, not a change to the original roadmap. Per the original roadmap, all
+> testing / security / production-readiness work is **Phase 11**. Docker belongs to a later phase
+> and is deliberately out of scope here.
 
 ---
 
@@ -15,13 +20,75 @@
 | 2 | SQL analytics layer | ✅ Complete |
 | 3 | ML & Advanced Analytics | ✅ Complete |
 | 4 | FastAPI backend | ✅ Complete |
-| 5 | Streamlit dashboard | ⬜ Not started |
-| 6 | LLM analyst + safe NL→SQL | ⬜ Not started |
-| 7 | RAG knowledge assistant | ⬜ Not started |
-| 8 | AI business recommendations | ⬜ Not started |
+| 5 | Streamlit dashboard | ✅ Complete |
+| 6 | LLM analyst + safe NL→SQL | ✅ Complete |
+| 6.1 | NL→SQL hardening + direct SQL editor | ✅ Complete (Gemini live path pending quota reset) |
+| 7 | RAG knowledge assistant | ✅ Implemented & tested (Gemini synthesis pending quota) |
+| 8 | AI business recommendations | ✅ Implemented & tested (Gemini reasoning pending quota) |
+| 11 | Testing, Security & Production Readiness (ORIGINAL) | ✅ Complete — pytest 230/230 (100%) |
+| 12 | Docker / Deployment (ORIGINAL) | ✅ Complete — 3-service stack builds + starts + passes end-to-end validation |
 | 9 | Test suite hardening | ⬜ Not started |
 | 10 | Docker | ⬜ Not started |
 | 11 | Deployment & final documentation | ⬜ Not started |
+
+## Phase 7 — RAG knowledge assistant (implemented 2026-08-15)
+
+**Implemented**
+
+- `rag/ingest.py` — heading-aware markdown chunker (min 20 / target 220 / max 400 words), MD5 fingerprint dedup, TF-IDF fit, pickled index in `rag/index/`.
+- `rag/retriever.py` — cosine-similarity `Retriever` with `min_score` threshold, monotone-descending results, backend-swap-ready.
+- `rag/synthesizer.py` — Gemini grounded synthesis with `system_instruction` + auto source footer; deterministic citation-only fallback when Gemini is absent/quota-exhausted (never fabricates).
+- `scripts/build_rag_index.py` — one-shot ingest command.
+- `dashboard.py` — new **📚 Ask the Knowledge Base (RAG)** section under the AI Analyst chat with sample questions, top-K selector, retrieved excerpts panel with per-chunk citations.
+
+**Knowledge sources ingested**
+
+- `docs/data_dictionary.md` (11 chunks)
+- `docs/data_quality_report.md` (21 chunks)
+- `docs/database_relationships.md` (9 chunks)
+- `DECISIONS.md` (10 chunks)
+
+Total: 51 chunks, 3,112-term vocabulary.
+
+**Tested — `scripts/test_rag_pipeline.py`**
+
+- 21/21 passed (100%).
+- Coverage: ingestion, chunking bounds, dedup, index round-trip, source/section propagation, retrieval relevance (GMV, negative-review rule, churn decision, provenance, safety controls), score monotonicity, empty query, off-topic query relevance ceiling, min-score filter, fallback citation propagation, prompt-leak check, stats sources coverage, ingestion minimum-chunk floor.
+
+**Regression — `scripts/test_sql_editor_100.py`**
+
+- 111/111 passed (100%). No Phase 6 regression.
+
+**Pending / not verified**
+
+- Live Gemini synthesis (`_try_gemini` path) — not exercised because the free-tier `gemini-3.6-flash` daily quota (20 req/day) is currently exhausted. Deterministic fallback is exercised and passing. Live path will be tested tomorrow after quota reset.
+- No FastAPI endpoint wrapper for RAG yet (dashboard uses `rag/*` directly; add `/api/rag` in a follow-up if the API layer needs it).
+
+## Phase 8 — AI business recommendations (implemented 2026-08-15)
+
+**Implemented**
+
+- `ai/decision_support.py` — evidence-first recommendation engine:
+  - `Evidence` and `RecommendationPackage` dataclasses (every fact traceable to a source view + validated SQL).
+  - Keyword router → 7 recommendation categories, each with its own SQL query builder using existing `analytics.*` views: `category_quality`, `product_risk`, `delivery_sla`, `review_health`, `sales_trend`, `customer_segments`, `kpi_health`.
+  - All SQL passes through `ai.sql_validator.validate_sql` before executing on `readonly_engine`. No new database access surface.
+  - Optional RAG lookup per template via `rag.Retriever` (silent no-op when index missing).
+  - Optional Gemini reasoning layer that only *rewrites* the deterministic package under a hard system prompt ("use only numbers in the evidence"). If Gemini is unavailable or fails, the deterministic package is what the user sees. Never fabricates.
+  - `RecommendationPackage.to_markdown()` emits the required sections: Recommendation / Why / Observation / Context / Interpretation / Evidence / Limitations / Sources.
+- `dashboard.py` — new **💡 AI Business Recommendations** section under RAG, with sample-question buttons, Gemini toggle, routed-category label, and a structured evidence table.
+
+**Tested — `scripts/test_decision_support.py`**
+
+- 25/25 passed (100%), Gemini disabled for determinism.
+- Coverage: routing all 7 categories + unsupported, evidence integrity (metrics, sources, MoM computation, product/category-specific fields), hallucination guard (no numbers in the recommendation text outside evidence/observation), markdown section completeness, unsupported-question message, SQL-injection input safety, RAG citation propagation, confidence value normalization, all 7 categories reachable, evidence JSON-serializability, mode reporting.
+
+**Phase 6 regression — `scripts/test_sql_editor_100.py`**: 111/111 (100%). No regression.
+
+**Phase 7 regression — `scripts/test_rag_pipeline.py`**: 21/21 (100%). No regression.
+
+**Pending / not verified**
+
+- Live Gemini reasoning-layer output — not exercised (quota exhausted). Deterministic path is fully exercised and passing.
 
 Legend: ⬜ not started · 🟡 in progress · ✅ complete · ⛔ blocked
 

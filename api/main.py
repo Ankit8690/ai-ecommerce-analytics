@@ -3,6 +3,8 @@ FastAPI Main Application Entry Point.
 """
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -18,12 +20,16 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Enable CORS for frontend/dashboard integration
+# CORS — comma-separated list in CORS_ALLOW_ORIGINS. Default "*" keeps local
+# dev frictionless; production deploys MUST set this to the dashboard origin.
+_raw = os.environ.get("CORS_ALLOW_ORIGINS", "*").strip()
+_origins = ["*"] if _raw == "*" else [o.strip() for o in _raw.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=_origins,
+    # allow_credentials must be False when allow_origins=["*"] per CORS spec.
+    allow_credentials=_origins != ["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 

@@ -1,0 +1,52 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Virtual envs
+.venv
+venv
+env
+
+# Python caches
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# Local secrets — MUST NOT be baked into images
+.env
+.env.local
+.env.*.local
+
+# Editor / OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Docker itself
+docker-compose.override.yml
+
+# Local build artifacts
+*.log
+logs/
+tmp/
+build/
+dist/
+
+# Large binaries — Dataset/raw CSVs ARE needed by seed.py (kept).
+# But archive zip is not needed inside the image.
+Dataset/archive*.zip
+
+# Test caches / reports
+.coverage
+htmlcov/
+.tox/
+
+# Node (not used here but hygiene)
+node_modules

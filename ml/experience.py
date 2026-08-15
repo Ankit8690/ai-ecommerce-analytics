@@ -13,12 +13,13 @@ from sklearn.preprocessing import StandardScaler
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
+_MODEL_CACHE = {}
+
 
 def analyze_customer_experience_correlations(engine: Engine) -> dict:
     """
     Investigate statistical relationships between delivery metrics and review outcomes.
     """
-    # 1. Delivery delay vs negative review rate
     query_late = """
     SELECT
         CASE WHEN order_delivered_customer_date > order_estimated_delivery_date THEN 'Late' ELSE 'On-Time' END AS delivery_status,
@@ -33,7 +34,6 @@ def analyze_customer_experience_correlations(engine: Engine) -> dict:
     GROUP BY 1
     """
     
-    # 2. Highest risk categories (> 500 orders)
     query_cat_risk = """
     SELECT
         product_category_name,
@@ -53,7 +53,7 @@ def analyze_customer_experience_correlations(engine: Engine) -> dict:
         
     return {
         "delivery_status_impact": late_analysis,
-        "top_high_risk_categories": cat_cat_risk if 'cat_cat_risk' in locals() else cat_risk
+        "top_high_risk_categories": cat_risk
     }
 
 
@@ -111,12 +111,15 @@ def train_experience_risk_model(
         "confusion_matrix": confusion_matrix(y_test, rf_preds).tolist()
     }
     
+    # Cache trained model for real-time inference
+    _MODEL_CACHE["rf"] = rf
+    _MODEL_CACHE["features"] = features
+    
     # Feature Importances (Random Forest)
     importances = dict(zip(features, [round(float(val), 4) for val in rf.feature_importances_]))
     sorted_importances = dict(sorted(importances.items(), key=lambda item: item[1], reverse=True))
     
     selected_model_name = "Random Forest" if rf_metrics["roc_auc"] >= lr_metrics["roc_auc"] else "Logistic Regression"
-    selected_metrics = rf_metrics if selected_model_name == "Random Forest" else lr_metrics
     
     return {
         "selected_model": selected_model_name,
@@ -125,4 +128,40 @@ def train_experience_risk_model(
         "feature_importances": sorted_importances,
         "target_negative_rate_pct": round(float(np.mean(y) * 100.0), 2),
         "sample_size": len(df_experience)
+    }
+
+
+def predict_experience_risk(input_features: dict) -> dict:
+    """
+    Perform fast real-time prediction for experience risk on a single order.
+    """
+    rf = _MODEL_CACHE.get("rf")
+    features = _MODEL_CACHE.get("features", [
+        "item_count", "item_price_total", "freight_total", "product_gmv",
+        "payment_count", "delivery_days", "is_late", "delay_vs_estimate_days"
+    ])
+    
+    # If model is not in memory, fallback to formulaic rule heuristic based on features
+    delay_vs_est = float(input_features.get("delay_vs_estimate_days", 0.0))
+    is_late = int(input_features.get("is_late", 0))
+    delivery_days = float(input_features.get("delivery_days", 12.0))
+    
+    if rf is not None:
+        X_sample = pd.DataFrame([input_features])[features]
+        prob = float(rf.predict_proba(X_sample)[0, 1])
+        pred = bool(prob >= 0.5)
+    else:
+        # Heuristic fallback based on trained feature importances
+        prob = 0.5464 if (is_late == 1 or delay_vs_est > 0) else 0.0949
+        if delivery_days > 20:
+            prob = min(0.95, prob + 0.20)
+        pred = bool(prob >= 0.40)
+        
+    risk_level = "High" if prob >= 0.50 else ("Medium" if prob >= 0.25 else "Low")
+    
+    return {
+        "predicted_negative_review": pred,
+        "risk_probability": round(prob, 4),
+        "risk_level": risk_level,
+        "model_used": "Random Forest Classifier" if rf is not None else "Experience Risk Heuristic Engine"
     }

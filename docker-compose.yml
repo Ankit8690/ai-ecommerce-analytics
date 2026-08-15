@@ -1,0 +1,125 @@
+# ─────────────────────────────────────────────────────────────────────
+# Compose stack for the AI-Powered E-Commerce BI platform.
+#
+# Services
+#   postgres   — PostgreSQL 18, persistent volume, roles created on first init
+#   api        — FastAPI backend (uvicorn on 0.0.0.0:8000)
+#   dashboard  — Streamlit UI (0.0.0.0:8501), talks to api via service name
+#   db-init    — ONE-SHOT seed loader (profile: init). Not started by default.
+#
+# Secrets come from a .env file next to this compose file. Never commit .env.
+# .env.example lists the required variables with empty / placeholder values.
+# ─────────────────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: ecommerce_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_ADMIN_PASSWORD:?POSTGRES_ADMIN_PASSWORD required in .env}
+      POSTGRES_DB: postgres
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?APP_DB_PASSWORD required in .env}
+      READONLY_DB_PASSWORD: ${READONLY_DB_PASSWORD:?READONLY_DB_PASSWORD required in .env}
+    volumes:
+      # Postgres 18 recommends /var/lib/postgresql (parent), not .../data.
+      - postgres_data:/var/lib/postgresql
+      - ./docker/init-postgres.sh:/docker-entrypoint-initdb.d/00-init.sh:ro
+    # Not exposed to host by default — services reach it via the compose network.
+    # Uncomment to enable psql from host during debugging:
+    # ports:
+    #   - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ecommerce-ai-app:latest
+    container_name: ecommerce_api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Docker-internal DB URLs — override the local-only .env values.
+      DATABASE_URL: postgresql+psycopg://ecommerce_app:${APP_DB_PASSWORD}@postgres:5432/ecommerce_ai
+      DATABASE_URL_READONLY: postgresql+psycopg://ecommerce_readonly:${READONLY_DB_PASSWORD}@postgres:5432/ecommerce_ai
+      DATABASE_ADMIN_URL: postgresql+psycopg://postgres:${POSTGRES_ADMIN_PASSWORD}@postgres:5432/postgres
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      READONLY_DB_PASSWORD: ${READONLY_DB_PASSWORD}
+      DATASET_RAW_DIR: /app/Dataset/raw
+      LLM_PROVIDER: ${LLM_PROVIDER:-google-gemini}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gemini-3.6-flash}
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+
+  dashboard:
+    image: ecommerce-ai-app:latest      # built by the `api` service
+    container_name: ecommerce_dashboard
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      DASHBOARD_API_URL: http://api:8000
+      DATABASE_URL_READONLY: postgresql+psycopg://ecommerce_readonly:${READONLY_DB_PASSWORD}@postgres:5432/ecommerce_ai
+      LLM_PROVIDER: ${LLM_PROVIDER:-google-gemini}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-gemini-3.6-flash}
+    command:
+      - streamlit
+      - run
+      - dashboard.py
+      - --server.address=0.0.0.0
+      - --server.port=8501
+      - --server.headless=true
+      - --browser.gatherUsageStats=false
+    ports:
+      - "8501:8501"
+
+  # ─── One-shot data loader — only started via `--profile init` ──────
+  # Bootstraps role grants + runs schema + loads 8 CSVs. Idempotent-ish:
+  # schema.sql is create-only, so re-running will error if tables exist.
+  db-init:
+    image: ecommerce-ai-app:latest
+    container_name: ecommerce_db_init
+    profiles: ["init"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://ecommerce_app:${APP_DB_PASSWORD}@postgres:5432/ecommerce_ai
+      DATABASE_URL_READONLY: postgresql+psycopg://ecommerce_readonly:${READONLY_DB_PASSWORD}@postgres:5432/ecommerce_ai
+      DATABASE_ADMIN_URL: postgresql+psycopg://postgres:${POSTGRES_ADMIN_PASSWORD}@postgres:5432/postgres
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD}
+      READONLY_DB_PASSWORD: ${READONLY_DB_PASSWORD}
+      DATASET_RAW_DIR: /app/Dataset/raw
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        echo '[db-init] bootstrap roles/permissions'
+        python database/seed.py --bootstrap
+        echo '[db-init] load schema + data'
+        python database/seed.py
+        echo '[db-init] create analytics views'
+        PGPASSWORD="$$APP_DB_PASSWORD" psql -h postgres -U ecommerce_app -d ecommerce_ai -f database/analytics_schema.sql || true
+        echo '[db-init] done'
+
+volumes:
+  postgres_data:
+    name: ecommerce_postgres_data

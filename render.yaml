@@ -1,0 +1,87 @@
+# ─────────────────────────────────────────────────────────────────────
+# Render Blueprint — Original Phase 13 cloud deployment.
+#
+# Provisions:
+#   - Managed PostgreSQL (persistent volume, backups)
+#   - api web service (Docker, Uvicorn)
+#   - dashboard web service (Docker, Streamlit)
+#
+# One-time database seeding is a manual step documented in docs/DEPLOYMENT.md
+# (Render runs `render psql` and `render shell`).
+#
+# Deploy: push this repo to GitHub → New Blueprint on Render → point at repo.
+# ─────────────────────────────────────────────────────────────────────
+
+databases:
+  - name: ecommerce-postgres
+    plan: free            # 90-day free tier; upgrade to Starter ($7/mo) for prod
+    databaseName: ecommerce_ai
+    user: ecommerce_app
+    postgresMajorVersion: "16"   # 18 not yet on Render's managed tier; 16 supports every view in analytics_schema.sql
+
+services:
+  # ──────────── FastAPI backend ────────────
+  - type: web
+    name: ecommerce-api
+    runtime: docker
+    plan: free            # sleeps after 15 min idle; upgrade for always-on
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: python -m uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8000"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ecommerce-postgres
+          property: connectionString
+      - key: DATABASE_URL_READONLY
+        # Render doesn't ship a separate readonly connection string, so we
+        # reuse the primary URL. The SQL validator + application-level guards
+        # still restrict every generated query to SELECT/WITH; add a dedicated
+        # read-only role manually in DEPLOYMENT.md if stricter isolation is
+        # required (recommended for prod).
+        fromDatabase:
+          name: ecommerce-postgres
+          property: connectionString
+      - key: LLM_PROVIDER
+        value: google-gemini
+      - key: LLM_MODEL
+        value: gemini-3.6-flash
+      - key: LLM_API_KEY
+        sync: false       # set manually in Render dashboard, never in Git
+      - key: CORS_ALLOW_ORIGINS
+        sync: false       # set to the dashboard URL after first deploy
+
+  # ──────────── Streamlit dashboard ────────────
+  - type: web
+    name: ecommerce-dashboard
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: >
+      streamlit run dashboard.py
+        --server.address=0.0.0.0
+        --server.port=$PORT
+        --server.headless=true
+        --browser.gatherUsageStats=false
+    envVars:
+      - key: PORT
+        value: "8501"
+      - key: DASHBOARD_API_URL
+        fromService:
+          name: ecommerce-api
+          type: web
+          property: hostport   # https://<api-service>.onrender.com
+      - key: DATABASE_URL_READONLY
+        fromDatabase:
+          name: ecommerce-postgres
+          property: connectionString
+      - key: LLM_PROVIDER
+        value: google-gemini
+      - key: LLM_MODEL
+        value: gemini-3.6-flash
+      - key: LLM_API_KEY
+        sync: false       # set manually in Render dashboard
