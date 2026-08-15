@@ -62,33 +62,53 @@ def load_env(*, for_bootstrap: bool = False) -> dict[str, str]:
     missing = [k for k, v in cfg.items() if not v]
     if missing:
         sys.exit(f"Missing required .env keys: {missing}. Copy .env.example -> .env and fill them.")
+    # Managed cloud providers hand out plain `postgresql://` URLs; SQLAlchemy needs
+    # the driver hint. Normalise in-place so callers can paste the URL verbatim.
+    for k in ("DATABASE_URL", "DATABASE_URL_READONLY", "DATABASE_ADMIN_URL"):
+        v = cfg.get(k, "")
+        if v.startswith("postgresql://"):
+            cfg[k] = v.replace("postgresql://", "postgresql+psycopg://", 1)
     return cfg
 
 
 def validate_connection_roles(cfg: dict[str, str], *, require_admin: bool = False) -> None:
-    """Fail before any database work if URLs do not match the fixed role model."""
+    """Fail before any database work if URLs do not match the fixed role model.
+
+    The local-only role/database name checks catch accidental targeting of the
+    wrong DB during development. Managed cloud providers (Render, Railway,
+    Neon, RDS, …) auto-name databases and expose only one role, so these
+    checks would block legitimate cloud seeding. Setting the environment
+    variable ``SEED_ALLOW_REMOTE=1`` bypasses just the name/role checks
+    (never the presence checks). Use only when targeting a managed service.
+    """
     app_url = make_url(cfg["DATABASE_URL"])
     readonly_url = make_url(cfg["DATABASE_URL_READONLY"])
     problems: list[str] = []
+    allow_remote = os.getenv("SEED_ALLOW_REMOTE") == "1"
 
-    if app_url.database != TARGET_DATABASE:
-        problems.append(f"DATABASE_URL must target {TARGET_DATABASE!r}")
-    if app_url.username != APP_ROLE:
-        problems.append(f"DATABASE_URL must use the dedicated {APP_ROLE!r} role, never postgres")
-    if readonly_url.database != TARGET_DATABASE:
-        problems.append(f"DATABASE_URL_READONLY must target {TARGET_DATABASE!r}")
-    if readonly_url.username != READONLY_ROLE:
-        problems.append(f"DATABASE_URL_READONLY must use {READONLY_ROLE!r}")
+    if not allow_remote:
+        if app_url.database != TARGET_DATABASE:
+            problems.append(f"DATABASE_URL must target {TARGET_DATABASE!r}")
+        if app_url.username != APP_ROLE:
+            problems.append(f"DATABASE_URL must use the dedicated {APP_ROLE!r} role, never postgres")
+        if readonly_url.database != TARGET_DATABASE:
+            problems.append(f"DATABASE_URL_READONLY must target {TARGET_DATABASE!r}")
+        if readonly_url.username != READONLY_ROLE:
+            problems.append(f"DATABASE_URL_READONLY must use {READONLY_ROLE!r}")
 
     if require_admin:
         admin_url = make_url(cfg["DATABASE_ADMIN_URL"])
-        if admin_url.database == TARGET_DATABASE:
-            problems.append("DATABASE_ADMIN_URL must connect to an administrative database, not ecommerce_ai")
-        if admin_url.username in {APP_ROLE, READONLY_ROLE}:
-            problems.append("DATABASE_ADMIN_URL must use an administrator role")
+        if not allow_remote:
+            if admin_url.database == TARGET_DATABASE:
+                problems.append("DATABASE_ADMIN_URL must connect to an administrative database, not ecommerce_ai")
+            if admin_url.username in {APP_ROLE, READONLY_ROLE}:
+                problems.append("DATABASE_ADMIN_URL must use an administrator role")
 
     if problems:
-        sys.exit("Invalid database configuration: " + "; ".join(problems))
+        hint = ("" if allow_remote else
+                "\nHint: for managed cloud databases (Render/Railway/RDS/…) set "
+                "SEED_ALLOW_REMOTE=1 to bypass local-only role checks.")
+        sys.exit("Invalid database configuration: " + "; ".join(problems) + hint)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -158,6 +178,30 @@ def bootstrap(cfg: dict[str, str]) -> None:
 # ─────────────────────────────────────────────────────────────────────
 def apply_schema(engine: Engine) -> None:
     sql = SCHEMA_SQL.read_text(encoding="utf-8")
+
+    # On managed cloud DBs the readonly role isn't pre-created by our bootstrap
+    # step (SEED_ALLOW_REMOTE=1 skipped bootstrap). schema.sql then errors on
+    # GRANT/REVOKE lines that reference `ecommerce_readonly`. Ensure the role
+    # exists first — idempotent; requires the current role to have CREATEROLE
+    # (Render's primary user has it).
+    if os.getenv("SEED_ALLOW_REMOTE") == "1":
+        readonly_pw = os.getenv("READONLY_DB_PASSWORD") or "readonly_placeholder_pw"
+        ensure_role_sql = f"""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '{READONLY_ROLE}') THEN
+                CREATE ROLE {READONLY_ROLE} WITH LOGIN PASSWORD '{readonly_pw}';
+            END IF;
+        END $$;
+        """
+        try:
+            with engine.begin() as conn:
+                conn.exec_driver_sql(ensure_role_sql)
+            print(f"[schema] ensured role '{READONLY_ROLE}' exists on remote")
+        except Exception as e:
+            print(f"[schema] WARNING: could not ensure {READONLY_ROLE!r}: {e}")
+            print("[schema] continuing; schema.sql GRANTs may fail if role is missing")
+
     with engine.begin() as conn:
         # SQLAlchemy's exec_driver_sql sends the whole batch verbatim, which
         # is what schema.sql expects.
