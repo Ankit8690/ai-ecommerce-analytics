@@ -92,12 +92,28 @@ st.markdown("""
 # --------------------------- shared helpers ---------------------------------
 @st.cache_data(ttl=120)
 def fetch_api_data(endpoint: str, params: dict = None):
+    """
+    GET an API endpoint with a cold-start-tolerant timeout.
+
+    Render/Railway/Fly free-tier services sleep after ~15 min idle and take
+    30-45 s to wake. A short timeout (5 s) would surface a spurious "can't
+    connect" error even though the API is fine — it's just booting.
+    """
     url = f"{API_BASE_URL}{endpoint}"
+    is_local = "localhost" in API_BASE_URL or "127.0.0.1" in API_BASE_URL
+    timeout_s = 10 if is_local else 60
     try:
-        resp = requests.get(url, params=params, timeout=5)
+        resp = requests.get(url, params=params, timeout=timeout_s)
         if resp.status_code == 200:
             return resp.json()
-        st.error(f"API Error ({resp.status_code}) on {endpoint}: {resp.text}")
+        st.error(f"API Error ({resp.status_code}) on {endpoint}: {resp.text[:200]}")
+        return None
+    except requests.exceptions.Timeout:
+        st.error(
+            f"⏳ API at {API_BASE_URL} didn't respond within {timeout_s}s. "
+            f"On Render free tier the first request after ~15 min idle can take up "
+            f"to 45s while the service wakes up. Try again in a moment."
+        )
         return None
     except Exception:
         st.error(f"Unable to connect to API backend at {API_BASE_URL}. Ensure FastAPI is running.")
