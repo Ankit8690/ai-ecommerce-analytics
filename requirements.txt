@@ -2,7 +2,7 @@
 
 # Database
 sqlalchemy==2.0.36
-psycopg[binary]==3.2.3
+psycopg2-binary==2.9.10
 
 # Data
 pandas==2.3.0
@@ -25,6 +25,7 @@ pydantic
 
 # Dashboard (Phase 5)
 streamlit
+
 plotly
 
 # AI / LLM (Phase 6)
