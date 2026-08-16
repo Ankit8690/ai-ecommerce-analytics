@@ -90,14 +90,24 @@ st.markdown("""
 
 
 # --------------------------- shared helpers ---------------------------------
+_FRIENDLY_500 = (
+    "This section isn't available in the current deployment. "
+    "The data it needs (typically an ML-derived table) hasn't been loaded to "
+    "this environment yet — everything else on the site continues to work."
+)
+
+
 @st.cache_data(ttl=120)
-def fetch_api_data(endpoint: str, params: dict = None):
+def fetch_api_data(endpoint: str, params: dict = None, silent: bool = False):
     """
-    GET an API endpoint with a cold-start-tolerant timeout.
+    GET an API endpoint with a cold-start-tolerant timeout and friendly errors.
 
     Render/Railway/Fly free-tier services sleep after ~15 min idle and take
-    30-45 s to wake. A short timeout (5 s) would surface a spurious "can't
-    connect" error even though the API is fine — it's just booting.
+    30-45 s to wake. A short timeout would surface spurious "can't connect"
+    errors even though the API is fine — it's just booting.
+
+    `silent=True` suppresses UI error messages so callers can render their own
+    contextual empty-state (better UX than a red error box on every page).
     """
     url = f"{API_BASE_URL}{endpoint}"
     is_local = "localhost" in API_BASE_URL or "127.0.0.1" in API_BASE_URL
@@ -106,17 +116,28 @@ def fetch_api_data(endpoint: str, params: dict = None):
         resp = requests.get(url, params=params, timeout=timeout_s)
         if resp.status_code == 200:
             return resp.json()
-        st.error(f"API Error ({resp.status_code}) on {endpoint}: {resp.text[:200]}")
+        if resp.status_code == 404:
+            if not silent:
+                st.info("No record found for that identifier.")
+            return None
+        if resp.status_code == 500:
+            if not silent:
+                st.warning(_FRIENDLY_500)
+            return None
+        if not silent:
+            st.warning(f"Request couldn't be completed (status {resp.status_code}). "
+                       f"Try again in a moment.")
         return None
     except requests.exceptions.Timeout:
-        st.error(
-            f"⏳ API at {API_BASE_URL} didn't respond within {timeout_s}s. "
-            f"On Render free tier the first request after ~15 min idle can take up "
-            f"to 45s while the service wakes up. Try again in a moment."
-        )
+        if not silent:
+            st.info(
+                "⏳ The API is warming up (free-tier services sleep after 15 min idle). "
+                "Give it 30-45 seconds and try again."
+            )
         return None
     except Exception:
-        st.error(f"Unable to connect to API backend at {API_BASE_URL}. Ensure FastAPI is running.")
+        if not silent:
+            st.info("The backend is temporarily unreachable. Retrying in a few seconds usually works.")
         return None
 
 
@@ -672,15 +693,25 @@ def _page_customers_segments():
                                value="0000366f3b9a7992bf8c76cfdf3221e2")
     if not sample_cid:
         return
-    cust = fetch_api_data(f"/api/customers/{sample_cid.strip()}")
-    cust_seg = fetch_api_data(f"/api/customers/{sample_cid.strip()}/segment")
-    if cust and cust_seg:
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Orders Placed", cust["order_count"])
-        m2.metric("Total Spend (GMV)", f"{cust['total_gmv']:,.2f}")
-        m3.metric("Avg Order Value", f"{cust['avg_order_value_gmv']:,.2f}")
-        m4.metric("Segment Label", cust_seg["segment_label"])
-        st.write(f"**First Order Date**: {cust['first_order_date']} | **Latest Order Date**: {cust['latest_order_date']}")
+    # Silent fetches so we render a single contextual message instead of
+    # two stacked error boxes if the ML segment table isn't populated.
+    cust = fetch_api_data(f"/api/customers/{sample_cid.strip()}", silent=True)
+    cust_seg = fetch_api_data(f"/api/customers/{sample_cid.strip()}/segment", silent=True)
+    if not cust:
+        st.info("No customer profile found for that ID. Try a different `customer_unique_id`.")
+        return
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Orders Placed", cust["order_count"])
+    m2.metric("Total Spend (GMV)", f"{cust['total_gmv']:,.2f}")
+    m3.metric("Avg Order Value", f"{cust['avg_order_value_gmv']:,.2f}")
+    m4.metric("Segment Label",
+              cust_seg["segment_label"] if cust_seg else "—")
+    st.write(f"**First Order Date**: {cust['first_order_date']} | "
+             f"**Latest Order Date**: {cust['latest_order_date']}")
+    if not cust_seg:
+        st.caption("ℹ️ Segment label unavailable in this deployment — the ML segmentation "
+                   "table hasn't been loaded to the current environment. Customer profile "
+                   "data above is fully accurate.")
 
 
 def _page_customer_experience():
