@@ -100,45 +100,62 @@ _FRIENDLY_500 = (
 @st.cache_data(ttl=120)
 def fetch_api_data(endpoint: str, params: dict = None, silent: bool = False):
     """
-    GET an API endpoint with a cold-start-tolerant timeout and friendly errors.
-
-    Render/Railway/Fly free-tier services sleep after ~15 min idle and take
-    30-45 s to wake. A short timeout would surface spurious "can't connect"
-    errors even though the API is fine — it's just booting.
+    GET an API endpoint with a cold-start-tolerant timeout, one automatic
+    retry on transient errors (502 / 503 / timeout — common on Render free
+    tier during cold starts), and friendly user-facing errors.
 
     `silent=True` suppresses UI error messages so callers can render their own
     contextual empty-state (better UX than a red error box on every page).
     """
+    import time as _time
     url = f"{API_BASE_URL}{endpoint}"
     is_local = "localhost" in API_BASE_URL or "127.0.0.1" in API_BASE_URL
     timeout_s = 10 if is_local else 60
-    try:
-        resp = requests.get(url, params=params, timeout=timeout_s)
-        if resp.status_code == 200:
-            return resp.json()
-        if resp.status_code == 404:
+    transient_codes = {502, 503, 504}
+
+    last_status = None
+    last_exc: Exception | None = None
+    # Two attempts: first one may catch the cold-start 502; second usually works.
+    for attempt in (1, 2):
+        try:
+            resp = requests.get(url, params=params, timeout=timeout_s)
+            last_status = resp.status_code
+            if resp.status_code == 200:
+                return resp.json()
+            if resp.status_code == 404:
+                if not silent:
+                    st.info("No record found for that identifier.")
+                return None
+            if resp.status_code in transient_codes and attempt == 1:
+                _time.sleep(3)  # brief backoff, then retry once
+                continue
+            if resp.status_code == 500:
+                if not silent:
+                    st.warning(_FRIENDLY_500)
+                return None
             if not silent:
-                st.info("No record found for that identifier.")
+                st.warning(f"Request couldn't be completed (status {resp.status_code}). "
+                           f"Try again in a moment.")
             return None
-        if resp.status_code == 500:
+        except requests.exceptions.Timeout as e:
+            last_exc = e
+            if attempt == 1:
+                continue  # retry once — first try often warms the cold service
             if not silent:
-                st.warning(_FRIENDLY_500)
+                st.info(
+                    "⏳ The API is warming up (free-tier services sleep after 15 min idle). "
+                    "Give it 30-45 seconds and try again."
+                )
             return None
-        if not silent:
-            st.warning(f"Request couldn't be completed (status {resp.status_code}). "
-                       f"Try again in a moment.")
-        return None
-    except requests.exceptions.Timeout:
-        if not silent:
-            st.info(
-                "⏳ The API is warming up (free-tier services sleep after 15 min idle). "
-                "Give it 30-45 seconds and try again."
-            )
-        return None
-    except Exception:
-        if not silent:
-            st.info("The backend is temporarily unreachable. Retrying in a few seconds usually works.")
-        return None
+        except Exception as e:
+            last_exc = e
+            if attempt == 1:
+                _time.sleep(2)
+                continue
+            if not silent:
+                st.info("The backend is temporarily unreachable. Retrying in a few seconds usually works.")
+            return None
+    return None
 
 
 @st.cache_data(show_spinner=False)
