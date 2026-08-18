@@ -87,7 +87,7 @@ def execute_safe_query(engine: Engine, sql_query: str) -> Tuple[bool, List[Dict[
 
 
 def _try_gemini_synthesis(question: str, data: Any, source_name: str,
-                          api_key: str, model_name: str, timeout_s: int = 20) -> str | None:
+                          api_key: str, model_name: str, timeout_s: int = 45) -> str | None:
     """Single Gemini synthesis call. Returns text or None on failure/timeout."""
     try:
         from google import genai

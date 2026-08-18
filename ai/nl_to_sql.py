@@ -121,7 +121,7 @@ def _clean_sql_output(raw: str) -> str:
     return txt.strip()
 
 
-def generate_sql_via_gemini(question: str, timeout_s: int = 25) -> Optional[str]:
+def generate_sql_via_gemini(question: str, timeout_s: int = 45) -> Optional[str]:
     """Call Gemini to translate ``question`` into a single read-only SQL statement.
 
     Returns the cleaned SQL string or ``None`` on any failure (missing API key,

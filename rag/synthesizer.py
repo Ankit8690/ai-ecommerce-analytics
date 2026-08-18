@@ -39,7 +39,7 @@ def _format_context(results: list[RetrievalResult]) -> str:
 
 
 def _try_gemini(question: str, results: list[RetrievalResult],
-                timeout_s: int = 20) -> Optional[str]:
+                timeout_s: int = 40) -> Optional[str]:
     api_key = os.getenv("LLM_API_KEY") or os.getenv("GEMINI_API_KEY")
     if not api_key:
         return None
