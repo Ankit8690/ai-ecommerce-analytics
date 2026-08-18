@@ -176,17 +176,32 @@ def _tokenize(text: str) -> list[str]:
             if t not in _STOP and len(t) > 1]
 
 
-def search_questions(library, query, category, top_k=10):
+def search_questions(library, query, category, top_k=100):
+    """Filter by category first, then rank by relevance.
+
+    When `query` is empty: return the full category-filtered list.
+    When `query` has terms: rank by (a) case-insensitive substring hits on the
+    question text, (b) token overlap, (c) partial token matches. This is more
+    forgiving than pure token-set overlap and handles short queries like
+    "gmv" or "review" that were previously rejected by the min-length filter.
+    """
     pool = [q for q in library if not category or category == "All" or q["category"] == category]
-    toks = _tokenize(query)
-    if not toks:
+    q_raw = (query or "").strip().lower()
+    if not q_raw:
         return pool[:top_k]
+
+    toks = _tokenize(q_raw) or [q_raw]  # if the whole query was stopwords, fall back to raw
     scored = []
     for q in pool:
-        text_toks = _tokenize(f"{q['question']} {q['category']}")
-        overlap = len(set(toks) & set(text_toks))
-        if overlap:
-            scored.append((overlap + 0.1 * sum(1 for t in toks if any(t in w for w in text_toks)), q))
+        text = f"{q['question']} {q['category']}".lower()
+        text_toks = _tokenize(text)
+        substring_hits = sum(1 for t in toks if t in text)
+        exact_overlap = len(set(toks) & set(text_toks))
+        partial = sum(1 for t in toks if any(t in w for w in text_toks))
+        raw_hit = 5 if q_raw in text else 0
+        score = raw_hit + 3 * substring_hits + 2 * exact_overlap + partial
+        if score > 0:
+            scored.append((score, q))
     scored.sort(key=lambda x: (-x[0], x[1]["id"]))
     return [q for _, q in scored[:top_k]]
 
@@ -227,12 +242,15 @@ def main():
     def _fmt(opt: str) -> str:
         return opt if not opt.startswith("─") else opt  # separator rendered as-is
 
+    # Stable key lets other pages programmatically switch tabs (e.g. Question
+    # Library's "Use in Analyst" button jumps to the AI Analyst page).
     menu = st.sidebar.radio(
         "Navigation",
         NAV_OPTIONS,
         index=0,
         format_func=_fmt,
         label_visibility="collapsed",
+        key="nav_menu",
     )
     # Separator row is not a real page — fall back to the analyst.
     if menu.startswith("─"):
@@ -339,29 +357,61 @@ def _page_question_library():
     categories = ["All"] + sorted({q["category"] for q in library})
     sc1, sc2 = st.columns([3, 1])
     with sc1:
-        query = st.text_input("Search questions",
-                              key="question_lib_search",
-                              placeholder="e.g. products with bad ratings")
+        query = st.text_input(
+            "Search questions",
+            key="question_lib_search",
+            placeholder="Try: gmv, review, delivery, forecast, segment…",
+        )
     with sc2:
         selected_cat = st.selectbox("Category", categories, key="question_lib_cat")
 
-    results = search_questions(library, query, selected_cat, top_k=20)
-    st.caption(f"{len(results)} of {len(library)} questions shown.")
+    # No cap — show every match. With ~100 questions this is fine.
+    results = search_questions(library, query, selected_cat, top_k=len(library))
+    total_in_lib = len(library)
+    if query.strip() or selected_cat != "All":
+        st.caption(f"Showing **{len(results)}** of {total_in_lib} questions "
+                   f"(filtered by "
+                   f"{'search + ' if query.strip() else ''}"
+                   f"{'category' if selected_cat != 'All' else 'search' if query.strip() else 'all'}).")
+    else:
+        st.caption(f"Showing all **{total_in_lib}** questions. Use the search box or category filter to narrow.")
 
-    def _use_q(text): st.session_state["analyst_question"] = text
+    if not results:
+        st.warning("No questions match that search. Try a single keyword like `gmv`, `review`, or `delivery`.")
+        return
 
-    for q in results:
-        r1, r2 = st.columns([5, 1])
-        with r1:
-            st.markdown(
-                f"**Q{q['id']}** — {q['question']}  \n"
-                f"<span style='color:#64748B;font-size:0.8rem;'>{q['category']} · source: `{q['source']}`</span>",
-                unsafe_allow_html=True,
-            )
-        with r2:
-            st.button("Use in Analyst", key=f"use_q_{q['id']}",
-                      on_click=_use_q, args=(q["question"],))
-    st.caption("Click **Use in Analyst** then switch to the 🤖 AI Business Analyst page to run it.")
+    def _use_q_and_jump(text: str) -> None:
+        """Populate the analyst input AND switch the sidebar to that page."""
+        st.session_state["analyst_question"] = text
+        st.session_state["nav_menu"] = "🤖 AI Business Analyst"
+
+    # Group by category for easier scanning
+    from itertools import groupby
+    results_sorted = sorted(results, key=lambda q: (q["category"], q["id"]))
+    for category, items in groupby(results_sorted, key=lambda q: q["category"]):
+        items = list(items)
+        st.markdown(f"##### {category}  ·  {len(items)} question{'s' if len(items) != 1 else ''}")
+        for q in items:
+            r1, r2 = st.columns([5, 1])
+            with r1:
+                st.markdown(
+                    f"**Q{q['id']}** — {q['question']}  \n"
+                    f"<span style='color:#64748B;font-size:0.8rem;'>source: `{q['source']}`</span>",
+                    unsafe_allow_html=True,
+                )
+            with r2:
+                st.button(
+                    "▶ Use in Analyst",
+                    key=f"use_q_{q['id']}",
+                    on_click=_use_q_and_jump,
+                    args=(q["question"],),
+                    help="Load this question into the AI Business Analyst and jump there.",
+                )
+        st.markdown("")  # small spacer
+
+    st.caption("💡 Clicking **Use in Analyst** automatically switches to the "
+               "🤖 AI Business Analyst page with the question pre-filled — just click "
+               "**Ask Analyst** to run it.")
 
 
 # ============================================================================
