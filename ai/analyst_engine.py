@@ -250,30 +250,34 @@ def process_analyst_question(engine: Engine, question: str) -> dict:
 
     sql: str | None = None
     source_desc: str | None = None
-    intent_source: str = "gemini-sql"
+    intent_source: str = "local"
 
-    # 1. Primary path: Gemini generates SQL directly from schema + rules.
-    gemini_sql = generate_sql_via_gemini(question)
-    if gemini_sql:
-        is_valid, cleaned = validate_sql(gemini_sql)
-        if is_valid:
-            sql = cleaned
-            source_desc = "Dynamic SQL (Gemini NL→SQL)"
-        else:
-            # Log the reason via source_desc so the response makes it debuggable
-            _validator_reason = cleaned
+    # 1. Primary path: deterministic local parser. When it recognizes the
+    #    question, the generated SQL is guaranteed correct (right ORDER BY,
+    #    right LIMIT, right filter). No hallucination risk. Preferred over
+    #    Gemini because Gemini occasionally drops ORDER BY or invents columns,
+    #    producing plausible-but-wrong answers.
+    intent = parse_intent_locally(question)
+    if intent:
+        built = build_query_from_intent(intent)
+        if built:
+            is_valid, cleaned = validate_sql(built)
+            if is_valid:
+                sql = cleaned
+                source_desc = f"{_VIEW_MAP.get(intent['entity'], 'analytics view')} (local parser)"
 
-    # 2. Offline / degraded fallback: deterministic local parser.
+    # 2. Fallback: Gemini generates SQL from schema + rules. Only used when
+    #    the local parser can't understand the question.
     if not sql:
-        intent = parse_intent_locally(question)
-        if intent:
-            built = build_query_from_intent(intent)
-            if built:
-                is_valid, cleaned = validate_sql(built)
-                if is_valid:
-                    sql = cleaned
-                    source_desc = f"{_VIEW_MAP.get(intent['entity'], 'analytics view')} (local fallback)"
-                    intent_source = "local"
+        gemini_sql = generate_sql_via_gemini(question)
+        if gemini_sql:
+            is_valid, cleaned = validate_sql(gemini_sql)
+            if is_valid:
+                sql = cleaned
+                source_desc = "Dynamic SQL (Gemini NL→SQL)"
+                intent_source = "gemini-sql"
+            else:
+                _validator_reason = cleaned
 
     # 3. Last-resort keyword router (only when both above fail).
     if not sql:
