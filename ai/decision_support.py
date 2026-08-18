@@ -589,7 +589,7 @@ _GEMINI_SYS = (
 )
 
 
-def _try_gemini_reasoning(pkg: RecommendationPackage, timeout_s: int = 15) -> Optional[str]:
+def _try_gemini_reasoning(pkg: RecommendationPackage, timeout_s: int = 30) -> Optional[str]:
     api_key = os.getenv("LLM_API_KEY") or os.getenv("GEMINI_API_KEY")
     if not api_key or not pkg.supported:
         return None
