@@ -50,3 +50,5 @@ htmlcov/
 
 # Node (not used here but hygiene)
 node_modules
+
+.cache

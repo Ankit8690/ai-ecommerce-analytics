@@ -41,3 +41,6 @@ logs/
 pg_data/
 *.dump
 *.sql.gz
+
+# Gemini response cache (Phase 10 optimisation)
+.cache/

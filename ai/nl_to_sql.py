@@ -139,9 +139,14 @@ def generate_sql_via_gemini(question: str, timeout_s: int = 45) -> Optional[str]
             from google.genai import types  # type: ignore
         except Exception:
             types = None  # type: ignore
+        from ai import gemini_cache
 
         client = genai.Client(api_key=api_key)
         prompt = SCHEMA_PROMPT.format(q=question.replace('"', "'").strip())
+
+        cached = gemini_cache.get(model, prompt)
+        if cached:
+            return _clean_sql_output(cached) or None
 
         def _gen():
             if types is not None:
@@ -165,6 +170,8 @@ def generate_sql_via_gemini(question: str, timeout_s: int = 45) -> Optional[str]
         if os.getenv("NL_SQL_DEBUG"):
             import sys
             print(f"[nl_to_sql] raw_len={len(raw)} clean_len={len(sql)}", file=sys.stderr)
+        if raw:
+            gemini_cache.put(model, prompt, raw)  # cache raw so we can re-clean identically
         return sql or None
     except Exception as err:
         if os.getenv("NL_SQL_DEBUG"):

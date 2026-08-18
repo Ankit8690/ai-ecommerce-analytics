@@ -95,6 +95,7 @@ def _try_gemini_synthesis(question: str, data: Any, source_name: str,
             from google.genai import types  # type: ignore
         except Exception:
             types = None  # type: ignore
+        from ai import gemini_cache
 
         client = genai.Client(api_key=api_key)
 
@@ -111,6 +112,10 @@ def _try_gemini_synthesis(question: str, data: Any, source_name: str,
             "**Key Numbers**, **Insight**, **Recommendation**. "
             "Keep under 180 words. Use ONLY numbers present in the data."
         )
+
+        cached = gemini_cache.get(model_name, prompt)
+        if cached:
+            return cached
 
         config = None
         if types is not None:
@@ -134,7 +139,10 @@ def _try_gemini_synthesis(question: str, data: Any, source_name: str,
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             resp = executor.submit(_gen).result(timeout=timeout_s)
-        return resp.text if getattr(resp, "text", None) else None
+        text = resp.text if getattr(resp, "text", None) else None
+        if text:
+            gemini_cache.put(model_name, prompt, text)
+        return text
     except Exception:
         return None
 

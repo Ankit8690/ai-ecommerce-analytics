@@ -600,6 +600,8 @@ def _try_gemini_reasoning(pkg: RecommendationPackage, timeout_s: int = 30) -> Op
             from google.genai import types  # type: ignore
         except Exception:
             types = None  # type: ignore
+        from ai import gemini_cache
+
         client = genai.Client(api_key=api_key)
         ev_lines = "\n".join(
             f"- {e.metric}: {e.value} {e.unit}".rstrip() for e in pkg.evidence
@@ -614,6 +616,10 @@ def _try_gemini_reasoning(pkg: RecommendationPackage, timeout_s: int = 30) -> Op
             f"Evidence:\n{ev_lines}\n"
             f"Limitations: {'; '.join(pkg.limitations)}\n"
         )
+
+        cached = gemini_cache.get(model, prompt)
+        if cached:
+            return cached
 
         def _gen():
             if types is not None:
@@ -630,7 +636,10 @@ def _try_gemini_reasoning(pkg: RecommendationPackage, timeout_s: int = 30) -> Op
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
             resp = ex.submit(_gen).result(timeout=timeout_s)
-        return getattr(resp, "text", None) or None
+        text = getattr(resp, "text", None) or None
+        if text:
+            gemini_cache.put(model, prompt, text)
+        return text
     except Exception:
         return None
 

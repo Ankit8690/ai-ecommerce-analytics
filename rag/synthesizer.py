@@ -50,6 +50,7 @@ def _try_gemini(question: str, results: list[RetrievalResult],
             from google.genai import types  # type: ignore
         except Exception:
             types = None  # type: ignore
+        from ai import gemini_cache
 
         client = genai.Client(api_key=api_key)
         prompt = (
@@ -57,6 +58,10 @@ def _try_gemini(question: str, results: list[RetrievalResult],
             f"Context excerpts:\n{_format_context(results)}\n\n"
             "Write the grounded answer now."
         )
+
+        cached = gemini_cache.get(model, prompt)
+        if cached:
+            return cached
 
         def _gen():
             if types is not None:
@@ -75,7 +80,10 @@ def _try_gemini(question: str, results: list[RetrievalResult],
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
             resp = ex.submit(_gen).result(timeout=timeout_s)
-        return getattr(resp, "text", None) or None
+        text = getattr(resp, "text", None) or None
+        if text:
+            gemini_cache.put(model, prompt, text)
+        return text
     except Exception:
         return None
 
