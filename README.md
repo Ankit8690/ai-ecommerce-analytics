@@ -134,13 +134,37 @@ Every recommendation returns a structured `RecommendationPackage` where each num
 back to a specific `analytics.*` view. Gemini only *rewrites* the narrative — never
 introduces numbers.
 
+### Phase 9 — Test suite hardening
+Turned the ad-hoc verification scripts from Phases 6–8 into a proper pytest suite. Added
+`pytest.ini`, `tests/conftest.py` with session-scoped fixtures (`db_engine`, `retriever`,
+`api_client`, `has_llm`) and auto-skip when the DB / index / app isn't reachable. Wrote
+thin `parametrize` wrappers around the existing `scripts/test_*.py` case lists so every
+individual case became a discoverable pytest test. Added new pure-unit modules for the
+SQL validator (28 cases), RAG chunker (7 cases), and FastAPI smoke coverage (10 cases).
+Baseline of **204 tests** established here. One-shot runner: `scripts/run_all_tests.py`.
+
+### Phase 10 — Reliability & graceful degradation
+Hardened every external-dependency edge case before shipping:
+- **Gemini failure paths**: cold-start-tolerant HTTP timeout in the dashboard
+  (60 s remote, 10 s local); auto-retry on transient 502/503/504; friendlier
+  error messages that never expose stack traces.
+- **Missing-data resilience**: dashboard pages degrade to a clean "not available in this
+  deployment" message when an ML table is absent (Render seed hadn't yet copied
+  `analytics.customer_segments`, for instance) — everything else keeps working.
+- **Config normalisation**: `DASHBOARD_API_URL` auto-adds `https://` and strips stray
+  internal ports, so a bad env-var value doesn't break the app.
+- **Cold-start UX**: friendly "the API is warming up (~30-45 s)" copy instead of
+  scary red errors on the first request after idle sleep.
+
 ### Phase 11 — Testing, security & production readiness
-- 230 pytest cases across 6 modules (SQL editor accuracy, RAG pipeline, decision support,
-  SQL validator unit, RAG chunker unit, API smoke, security & failure handling).
+Built on Phase 9's 204-test baseline by adding 26 dedicated security & failure-handling
+tests → **230 total, 100% pass**.
 - API error responses hardened to never leak DB credentials or stack traces.
-- Input length capped (413 on > 1000 chars).
-- Prompt-injection resistance tested (retrieved doc text is data, not instructions).
-- Read-only role enforcement verified at the DB layer.
+- Input length capped (HTTP 413 on > 1000 chars).
+- Prompt-injection resistance tested (retrieved doc text treated as data, not instructions).
+- Read-only role enforcement verified at the DB privilege layer.
+- Secret hygiene tests (no `AIza…` literals in tracked source, `.env` git-ignored).
+- Gemini failure paths, DB failure paths, and oversized-input paths all covered.
 
 ### Phase 12 — Docker deployment
 Reproducible 3-service stack: `postgres` (persistent volume) + `api` (FastAPI, healthchecked)
