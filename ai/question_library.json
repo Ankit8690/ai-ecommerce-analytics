@@ -73,6 +73,16 @@
     {"id": 61, "category": "Forecasting", "question": "Predict sales for the next three months.", "source": "ml_summary.json"},
     {"id": 62, "category": "Forecasting", "question": "Show me the next 3 months sales forecast.", "source": "ml_summary.json"},
     {"id": 63, "category": "Forecasting", "question": "What are our future sales predictions?", "source": "ml_summary.json"},
-    {"id": 64, "category": "Forecasting", "question": "Give me the sales forecast for the future.", "source": "ml_summary.json"}
+    {"id": 64, "category": "Forecasting", "question": "Give me the sales forecast for the future.", "source": "ml_summary.json"},
+
+    {"id": 65, "category": "Cross-View Analytics", "question": "Average delivery time by segment", "source": "customer_segments + orders (joined)"},
+    {"id": 66, "category": "Cross-View Analytics", "question": "Orders by segment", "source": "customer_segments + orders (joined)"},
+    {"id": 67, "category": "Cross-View Analytics", "question": "Satisfaction by segment", "source": "customer_segments + order_reviews (joined)"},
+    {"id": 68, "category": "Cross-View Analytics", "question": "Total GMV by segment", "source": "customer_segments + order_items (joined)"},
+    {"id": 69, "category": "Cross-View Analytics", "question": "Orders per state", "source": "customers + orders (joined)"},
+    {"id": 70, "category": "Cross-View Analytics", "question": "Average delivery time by state", "source": "customers + orders (joined)"},
+    {"id": 71, "category": "Cross-View Analytics", "question": "Total GMV by state", "source": "customers + order_items (joined)"},
+    {"id": 72, "category": "Cross-View Analytics", "question": "GMV by category", "source": "order_items + products (joined)"},
+    {"id": 73, "category": "Cross-View Analytics", "question": "Average review score by category", "source": "order_items + products + order_reviews (joined)"}
   ]
 }

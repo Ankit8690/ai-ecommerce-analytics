@@ -98,6 +98,168 @@ _METRIC_KEYWORDS: list[tuple[tuple[str, ...], str]] = [
 
 _ASC_WORDS  = {"least", "lowest", "worst", "bottom", "fewest", "smallest", "poorest", "weakest"}
 _DESC_WORDS = {"most", "highest", "best", "top", "largest", "biggest", "greatest", "strongest"}
+
+# ---------------------------------------------------------------------------
+# Multi-view join templates (v1).
+#
+# Each entry is a *hand-verified* SQL query that answers "<metric> grouped by
+# <dimension>". Templates are used only when the parser detects an explicit
+# "by <dimension>" / "per <dimension>" / "across <dimension>" phrase. Each
+# query preserves the correctness guarantees of the analytics.* views:
+#   - aggregates first, joins second (avoids row multiplication — see DQ-3)
+#   - filters delivered orders when computing delivery metrics
+#   - uses the correct grain (per-customer_unique_id where segments matter)
+# Adding a new template = adding a row here + one test case. Never a code change.
+# ---------------------------------------------------------------------------
+_GROUPBY_KEYWORDS: Dict[str, str] = {
+    # phrase → canonical dimension slug
+    "segment":  "segment",
+    "segments": "segment",
+    "cluster":  "segment",
+    "clusters": "segment",
+    "state":    "state",
+    "states":   "state",
+    "category": "category",
+    "categories": "category",
+    "month":    "month",
+    "months":   "month",
+}
+
+_JOIN_TEMPLATES: Dict[tuple, str] = {
+    # ── grouped by customer SEGMENT ─────────────────────────────────────────
+    ("order_count", "segment"): """
+        SELECT cs.segment_label AS segment,
+               COUNT(DISTINCT o.order_id) AS order_count
+        FROM analytics.customer_segments cs
+        JOIN public.customers c ON c.customer_unique_id = cs.customer_unique_id
+        JOIN public.orders    o ON o.customer_id = c.customer_id
+        GROUP BY cs.segment_label
+        ORDER BY order_count DESC
+        LIMIT 20
+    """,
+    ("avg_delivery_days", "segment"): """
+        SELECT cs.segment_label AS segment,
+               ROUND(AVG(EXTRACT(EPOCH FROM (o.order_delivered_customer_date - o.order_purchase_timestamp))
+                         / 86400.0)::numeric, 2) AS avg_delivery_days,
+               COUNT(*) AS delivered_orders
+        FROM analytics.customer_segments cs
+        JOIN public.customers c ON c.customer_unique_id = cs.customer_unique_id
+        JOIN public.orders    o ON o.customer_id = c.customer_id
+        WHERE o.order_status = 'delivered'
+          AND o.order_delivered_customer_date IS NOT NULL
+        GROUP BY cs.segment_label
+        ORDER BY avg_delivery_days ASC
+        LIMIT 20
+    """,
+    ("avg_review_score", "segment"): """
+        SELECT cs.segment_label AS segment,
+               ROUND(AVG(r.review_score)::numeric, 2) AS avg_review_score,
+               COUNT(r.review_score) AS review_count
+        FROM analytics.customer_segments cs
+        JOIN public.customers    c ON c.customer_unique_id = cs.customer_unique_id
+        JOIN public.orders       o ON o.customer_id = c.customer_id
+        JOIN public.order_reviews r ON r.order_id = o.order_id
+        GROUP BY cs.segment_label
+        ORDER BY avg_review_score DESC
+        LIMIT 20
+    """,
+    ("total_gmv", "segment"): """
+        SELECT cs.segment_label AS segment,
+               ROUND(SUM(oi.price + oi.freight_value)::numeric, 2) AS total_gmv,
+               COUNT(DISTINCT o.order_id) AS order_count
+        FROM analytics.customer_segments cs
+        JOIN public.customers   c  ON c.customer_unique_id = cs.customer_unique_id
+        JOIN public.orders      o  ON o.customer_id = c.customer_id
+        JOIN public.order_items oi ON oi.order_id = o.order_id
+        GROUP BY cs.segment_label
+        ORDER BY total_gmv DESC
+        LIMIT 20
+    """,
+
+    # ── grouped by customer STATE ───────────────────────────────────────────
+    ("order_count", "state"): """
+        SELECT c.customer_state AS state,
+               COUNT(DISTINCT o.order_id) AS order_count,
+               COUNT(DISTINCT c.customer_unique_id) AS unique_customers
+        FROM public.customers c
+        JOIN public.orders    o ON o.customer_id = c.customer_id
+        GROUP BY c.customer_state
+        ORDER BY order_count DESC
+        LIMIT 25
+    """,
+    ("avg_delivery_days", "state"): """
+        SELECT c.customer_state AS state,
+               ROUND(AVG(EXTRACT(EPOCH FROM (o.order_delivered_customer_date - o.order_purchase_timestamp))
+                         / 86400.0)::numeric, 2) AS avg_delivery_days,
+               COUNT(*) AS delivered_orders
+        FROM public.customers c
+        JOIN public.orders    o ON o.customer_id = c.customer_id
+        WHERE o.order_status = 'delivered'
+          AND o.order_delivered_customer_date IS NOT NULL
+        GROUP BY c.customer_state
+        ORDER BY avg_delivery_days DESC
+        LIMIT 25
+    """,
+    ("total_gmv", "state"): """
+        SELECT c.customer_state AS state,
+               ROUND(SUM(oi.price + oi.freight_value)::numeric, 2) AS total_gmv,
+               COUNT(DISTINCT o.order_id) AS order_count
+        FROM public.customers   c
+        JOIN public.orders      o  ON o.customer_id = c.customer_id
+        JOIN public.order_items oi ON oi.order_id = o.order_id
+        GROUP BY c.customer_state
+        ORDER BY total_gmv DESC
+        LIMIT 25
+    """,
+
+    # ── grouped by product CATEGORY ─────────────────────────────────────────
+    ("total_gmv", "category"): """
+        SELECT p.product_category_name AS category,
+               ROUND(SUM(oi.price + oi.freight_value)::numeric, 2) AS total_gmv,
+               COUNT(*) AS items_sold
+        FROM public.order_items oi
+        JOIN public.products    p ON p.product_id = oi.product_id
+        WHERE p.product_category_name IS NOT NULL
+        GROUP BY p.product_category_name
+        ORDER BY total_gmv DESC
+        LIMIT 25
+    """,
+    ("avg_review_score", "category"): """
+        SELECT p.product_category_name AS category,
+               ROUND(AVG(r.review_score)::numeric, 2) AS avg_review_score,
+               COUNT(r.review_score) AS review_count
+        FROM public.order_items oi
+        JOIN public.products     p ON p.product_id = oi.product_id
+        JOIN public.order_reviews r ON r.order_id = oi.order_id
+        WHERE p.product_category_name IS NOT NULL
+        GROUP BY p.product_category_name
+        HAVING COUNT(r.review_score) >= 100
+        ORDER BY avg_review_score ASC
+        LIMIT 25
+    """,
+}
+
+# Metric keywords → the canonical metric name used as a template key.
+# Kept separate from the single-view _METRIC_KEYWORDS so grouping detection
+# can be case-normalised independently.
+_GROUPED_METRIC_ALIASES: Dict[str, str] = {
+    "gmv": "total_gmv",
+    "revenue": "total_gmv",
+    "sales": "total_gmv",
+    "order_count": "order_count",
+    "orders": "order_count",
+    "order": "order_count",
+    "delivery": "avg_delivery_days",
+    "delivery_days": "avg_delivery_days",
+    "delivery_time": "avg_delivery_days",
+    "shipping": "avg_delivery_days",
+    "rating": "avg_review_score",
+    "rated": "avg_review_score",
+    "review": "avg_review_score",
+    "reviews": "avg_review_score",
+    "score": "avg_review_score",
+    "satisfaction": "avg_review_score",
+}
 _RANKING_HINTS = _ASC_WORDS | _DESC_WORDS | {"rank", "ranking", "which"}
 
 _NUMBER_WORDS = {
@@ -146,6 +308,46 @@ def _detect_direction(tokens: list[str]) -> Optional[str]:
     return None
 
 
+def _detect_grouping(q_lower: str) -> Optional[str]:
+    """Detect an explicit grouping phrase like 'by segment' / 'per state' /
+    'across category'. Returns the canonical dimension slug (segment / state /
+    category / month) or None. This is intentionally strict — vague phrases
+    are ignored so we never route a non-grouping question through a joined
+    template."""
+    # `by <metric>` (e.g. "top 5 by GMV") is a sort dimension, not a grouping.
+    # Only match `by <dim>` when the next token is a known grouping dimension.
+    for phrase in (" by ", " per ", " across ", " broken down by ", " grouped by "):
+        idx = q_lower.find(phrase)
+        while idx != -1:
+            tail = q_lower[idx + len(phrase):].strip()
+            # first alphanumeric token after the phrase
+            m = re.match(r"[a-z0-9]+", tail)
+            if m:
+                first = m.group(0)
+                if first in _GROUPBY_KEYWORDS:
+                    return _GROUPBY_KEYWORDS[first]
+            idx = q_lower.find(phrase, idx + 1)
+    return None
+
+
+def _detect_grouped_metric(tokens: list[str], q_lower: str) -> Optional[str]:
+    """Metric detection for the grouped path — uses a wider alias table so
+    'delivery time', 'satisfaction', 'sales' all map to canonical names."""
+    for tok in tokens:
+        if tok in _GROUPED_METRIC_ALIASES:
+            return _GROUPED_METRIC_ALIASES[tok]
+    # multi-word phrases
+    for phrase, canon in (
+        ("delivery time", "avg_delivery_days"),
+        ("delivery days", "avg_delivery_days"),
+        ("review score", "avg_review_score"),
+        ("customer satisfaction", "avg_review_score"),
+    ):
+        if phrase in q_lower:
+            return canon
+    return None
+
+
 def _detect_metric(tokens: list[str], q_lower: str) -> Optional[str]:
     # explicit "by <metric>" wins
     m = re.search(r"\bby\s+([a-z_]+)", q_lower)
@@ -168,6 +370,27 @@ def parse_intent_locally(question: str) -> Optional[Dict[str, Any]]:
         return None
     q_lower = question.lower().strip()
     tokens = _tokens(q_lower)
+
+    # ── Multi-view grouping path (checked BEFORE entity so questions like
+    #    "avg delivery time by segment" don't get routed to the single-view
+    #    'delivery' entity). Only fires when both a valid template metric
+    #    AND a supported grouping dimension are present. ──────────────────
+    grouped_by = _detect_grouping(q_lower)
+    if grouped_by:
+        grouped_metric = _detect_grouped_metric(tokens, q_lower)
+        if grouped_metric and (grouped_metric, grouped_by) in _JOIN_TEMPLATES:
+            return {
+                "entity": "__joined__",
+                "metric": grouped_metric,
+                "grouped_by": grouped_by,
+                "sort_direction": "none",   # template controls order
+                "limit": 25,                # template controls limit
+                "filters": {}, "time_period": "",
+                "question_type": "grouped",
+            }
+        # If grouping phrase was detected but we don't support that combo,
+        # deliberately fall through to the single-view path — never return
+        # an unsupported template.
 
     entity = _detect_entity(tokens)
     if not entity:
@@ -300,6 +523,20 @@ def build_query_from_intent(intent: Dict[str, Any]) -> Optional[str]:
     """Deterministically build a safe read-only SELECT from a structured intent."""
     if not isinstance(intent, dict):
         return None
+
+    # ── Multi-view grouped path: return a pre-verified template SQL. Each
+    #    template is hand-crafted to avoid the row-multiplication traps
+    #    (see DQ-3 / DQ-15) and to include the correct WHERE filters for
+    #    the metric (e.g. order_status='delivered' for delivery averages). ─
+    grouped_by = intent.get("grouped_by")
+    if grouped_by:
+        metric = intent.get("metric")
+        template = _JOIN_TEMPLATES.get((metric, grouped_by))
+        if template:
+            # Normalise whitespace so the SQL validator's tokenizer stays happy.
+            return " ".join(template.split())
+        return None
+
     entity = intent.get("entity")
     view = _VIEW_MAP.get(entity)
     if not view or entity == "forecast":
